@@ -2,7 +2,8 @@
     "name": "ArcherLegend",
     "rootNamespace": "ArcherLegend",
     "references": [
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
     ],
     "autoReferenced": true
 }

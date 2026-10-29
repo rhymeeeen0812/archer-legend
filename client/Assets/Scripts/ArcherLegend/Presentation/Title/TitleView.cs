@@ -25,10 +25,10 @@ namespace ArcherLegend.Presentation.Title
             UiFactory.PlaceCenter(title.rectTransform, new Vector2(0f, 110f), new Vector2(620f, 72f));
 
             var message = UiFactory.CreateText(transform, "Message", 20);
-            message.text = "Press Start";
+            message.text = "押し寄せる敵を倒して、どこまで生き残れるか挑戦しよう";
             UiFactory.PlaceCenter(message.rectTransform, new Vector2(0f, 34f), new Vector2(620f, 40f));
 
-            var startButton = UiFactory.CreateButton(transform, "Start Button", "Start", UiFactory.PrimaryButtonColor, 22);
+            var startButton = UiFactory.CreateButton(transform, "Start Button", "スタート", UiFactory.PrimaryButtonColor, 22);
             UiFactory.PlaceCenter(startButton.GetComponent<RectTransform>(), new Vector2(0f, -62f), new Vector2(240f, 54f));
             startButton.onClick.AddListener(() => StartClicked?.Invoke());
         }

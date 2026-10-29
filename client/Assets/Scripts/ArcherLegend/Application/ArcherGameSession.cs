@@ -99,10 +99,10 @@ namespace ArcherLegend.Application
         {
             var pool = new[]
             {
-                new UpgradeOption(UpgradeType.RapidShot, "Rapid Shot", "Shorter firing cooldown."),
-                new UpgradeOption(UpgradeType.PowerShot, "Power Shot", "Arrows hit harder."),
-                new UpgradeOption(UpgradeType.SwiftBoots, "Swift Boots", "Move faster."),
-                new UpgradeOption(UpgradeType.Vitality, "Vitality", "Gain max health and heal.")
+                new UpgradeOption(UpgradeType.RapidShot, "連射", "矢を放つ間隔が短くなる"),
+                new UpgradeOption(UpgradeType.PowerShot, "強弓", "矢のダメージが上がる"),
+                new UpgradeOption(UpgradeType.SwiftBoots, "疾風の靴", "移動が速くなる"),
+                new UpgradeOption(UpgradeType.Vitality, "活力", "最大HPが増え、HPが回復する")
             };
 
             for (var i = pool.Length - 1; i > 0; i--)

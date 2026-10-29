@@ -1,6 +1,6 @@
 using System;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace ArcherLegend.Presentation.Home
 {
@@ -22,25 +22,25 @@ namespace ArcherLegend.Presentation.Home
         public event Action PlayClicked;
         public event Action BackToTitleClicked;
 
-        private Text recordsText;
+        private TextMeshProUGUI recordsText;
 
         public void ShowLoading()
         {
-            recordsText.text = "Loading...";
+            recordsText.text = "読み込み中…";
         }
 
         public void ShowRecords(int bestScore, int bestWave, int totalEnemiesDefeated, int playCount)
         {
             recordsText.text =
-                $"Best Score    {bestScore}\n" +
-                $"Best Wave    {bestWave}\n" +
-                $"Enemies Defeated    {totalEnemiesDefeated}\n" +
-                $"Plays    {playCount}";
+                $"ベストスコア    {bestScore}\n" +
+                $"最高到達ウェーブ    {bestWave}\n" +
+                $"累計撃破数    {totalEnemiesDefeated}\n" +
+                $"プレイ回数    {playCount}";
         }
 
         public void ShowLoadError()
         {
-            recordsText.text = "Failed to load save data.";
+            recordsText.text = "セーブデータを読み込めませんでした";
         }
 
         private void Awake()
@@ -49,18 +49,18 @@ namespace ArcherLegend.Presentation.Home
             UiFactory.SetupCanvas(gameObject);
 
             var title = UiFactory.CreateText(transform, "Title", 40);
-            title.text = "Home";
+            title.text = "ホーム";
             UiFactory.PlaceCenter(title.rectTransform, new Vector2(0f, 190f), new Vector2(620f, 60f));
 
             recordsText = UiFactory.CreateText(transform, "Records", 22);
-            recordsText.lineSpacing = 1.3f;
+            recordsText.lineSpacing = 30f;
             UiFactory.PlaceCenter(recordsText.rectTransform, new Vector2(0f, 50f), new Vector2(620f, 180f));
 
-            var playButton = UiFactory.CreateButton(transform, "Play Button", "Adventure", UiFactory.PrimaryButtonColor, 22);
+            var playButton = UiFactory.CreateButton(transform, "Play Button", "冒険に出る", UiFactory.PrimaryButtonColor, 22);
             UiFactory.PlaceCenter(playButton.GetComponent<RectTransform>(), new Vector2(0f, -110f), new Vector2(240f, 54f));
             playButton.onClick.AddListener(() => PlayClicked?.Invoke());
 
-            var titleButton = UiFactory.CreateButton(transform, "Back To Title Button", "Title", UiFactory.SecondaryButtonColor, 18);
+            var titleButton = UiFactory.CreateButton(transform, "Back To Title Button", "タイトルへ", UiFactory.SecondaryButtonColor, 18);
             UiFactory.PlaceCenter(titleButton.GetComponent<RectTransform>(), new Vector2(0f, -176f), new Vector2(180f, 44f));
             titleButton.onClick.AddListener(() => BackToTitleClicked?.Invoke());
         }

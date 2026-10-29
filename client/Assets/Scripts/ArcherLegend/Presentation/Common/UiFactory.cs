@@ -1,4 +1,6 @@
+using TMPro;
 using UnityEngine;
+using UnityEngine.TextCore.LowLevel;
 using UnityEngine.UI;
 
 namespace ArcherLegend.Presentation
@@ -12,6 +14,30 @@ namespace ArcherLegend.Presentation
         public static readonly Color SecondaryButtonColor = new Color(0.08f, 0.10f, 0.12f, 0.92f);
         public static readonly Color OverlayColor = new Color(0f, 0f, 0f, 0.72f);
         public static readonly Color HighlightColor = new Color(1f, 0.84f, 0.29f);
+
+        // M PLUS 1p（SIL Open Font License）。同じフォルダに OFL.txt を同梱している
+        private const string JapaneseFontPath = "Fonts/MPLUS1p-Regular";
+
+        private static TMP_FontAsset japaneseFont;
+
+        /// <summary>
+        /// 日本語フォントの TextMesh Pro 用アセットです。漢字は数が多く事前に焼き込むと重いので、
+        /// 実行時に使った文字だけをアトラスへ追加する Dynamic モードで作ります。
+        /// </summary>
+        public static TMP_FontAsset JapaneseFont
+        {
+            get
+            {
+                if (japaneseFont == null)
+                {
+                    var font = Resources.Load<Font>(JapaneseFontPath);
+                    japaneseFont = TMP_FontAsset.CreateFontAsset(font, 90, 9, GlyphRenderMode.SDFAA, 1024, 1024, AtlasPopulationMode.Dynamic, true);
+                    japaneseFont.name = "MPLUS1p-Regular (Dynamic)";
+                }
+
+                return japaneseFont;
+            }
+        }
 
         public static void SetupCanvas(GameObject target, int sortingOrder = 0)
         {
@@ -37,18 +63,20 @@ namespace ArcherLegend.Presentation
             camera.backgroundColor = new Color(0.09f, 0.10f, 0.12f);
         }
 
-        public static Text CreateText(Transform parent, string name, int fontSize, TextAnchor alignment = TextAnchor.MiddleCenter)
+        public static TextMeshProUGUI CreateText(Transform parent, string name, float fontSize, TextAlignmentOptions alignment = TextAlignmentOptions.Center)
         {
             var textObject = new GameObject(name, typeof(RectTransform));
             textObject.transform.SetParent(parent, false);
 
-            var text = textObject.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var text = textObject.AddComponent<TextMeshProUGUI>();
+            text.font = JapaneseFont;
             text.fontSize = fontSize;
             text.color = Color.white;
             text.alignment = alignment;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.overflowMode = TextOverflowModes.Overflow;
+
+            // 文字はクリックを受けないので、ボタンの上に重なってもクリックを邪魔しないようにする
+            text.raycastTarget = false;
             return text;
         }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using ArcherLegend.Domain;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -25,13 +26,13 @@ namespace ArcherLegend.Presentation.Game
 
         public event Action<int> UpgradeSelected;
 
-        private Text statusText;
+        private TextMeshProUGUI statusText;
         private GameObject upgradePanel;
         private Button[] upgradeButtons;
 
         public void SetStatus(int health, int maxHealth, int level, int experience, int experienceToNext, int wave, int score, int aliveEnemies)
         {
-            statusText.text = $"HP {health}/{maxHealth}\nLV {level}  XP {experience}/{experienceToNext}\nWave {wave}  Score {score}\nEnemies {aliveEnemies}";
+            statusText.text = $"HP {health}/{maxHealth}\nレベル {level}  経験値 {experience}/{experienceToNext}\nウェーブ {wave}  スコア {score}\n残りの敵 {aliveEnemies}";
         }
 
         public void ShowUpgrades(IReadOnlyList<UpgradeOption> options)
@@ -42,7 +43,7 @@ namespace ArcherLegend.Presentation.Game
                 upgradeButtons[i].gameObject.SetActive(hasOption);
                 if (hasOption)
                 {
-                    upgradeButtons[i].GetComponentInChildren<Text>().text = $"<size=22><b>{options[i].Title}</b></size>\n{options[i].Description}";
+                    upgradeButtons[i].GetComponentInChildren<TextMeshProUGUI>().text = $"<size=22><b>{options[i].Title}</b></size>\n{options[i].Description}";
                 }
             }
 
@@ -58,19 +59,24 @@ namespace ArcherLegend.Presentation.Game
         {
             UiFactory.SetupCanvas(gameObject);
 
-            statusText = UiFactory.CreateText(transform, "Status", 20, TextAnchor.UpperLeft);
+            statusText = UiFactory.CreateText(transform, "Status", 20, TextAlignmentOptions.TopLeft);
             UiFactory.PlaceTopLeft(statusText.rectTransform, new Vector2(12f, -12f), new Vector2(360f, 180f));
+
+            var controlsHint = UiFactory.CreateText(transform, "Controls Hint", 16, TextAlignmentOptions.Bottom);
+            controlsHint.text = "WASD / 矢印キーで移動　立ち止まると近くの敵へ自動で矢を放つ";
+            controlsHint.color = new Color(1f, 1f, 1f, 0.7f);
+            UiFactory.Stretch(controlsHint.rectTransform, new Vector2(12f, 12f), new Vector2(-12f, -12f));
 
             // ゲームが一時停止していることが伝わるよう、画面全体を暗くしてから選択肢を出す
             upgradePanel = UiFactory.CreatePanel(transform, "Upgrade Panel", new Color(0f, 0f, 0f, 0.55f)).gameObject;
 
             var heading = UiFactory.CreateText(upgradePanel.transform, "Heading", 40);
-            heading.text = "LEVEL UP!";
+            heading.text = "レベルアップ！";
             heading.color = UiFactory.HighlightColor;
             UiFactory.PlaceCenter(heading.rectTransform, new Vector2(0f, 170f), new Vector2(620f, 56f));
 
             var guide = UiFactory.CreateText(upgradePanel.transform, "Guide", 18);
-            guide.text = "Choose one upgrade";
+            guide.text = "強化を1つ選んでください";
             UiFactory.PlaceCenter(guide.rectTransform, new Vector2(0f, 124f), new Vector2(620f, 30f));
 
             upgradeButtons = new Button[UpgradeSlotCount];
