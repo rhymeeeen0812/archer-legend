@@ -1,0 +1,8 @@
+{
+    "name": "ArcherLegend",
+    "rootNamespace": "ArcherLegend",
+    "references": [
+        "UnityEngine.UI"
+    ],
+    "autoReferenced": true
+}

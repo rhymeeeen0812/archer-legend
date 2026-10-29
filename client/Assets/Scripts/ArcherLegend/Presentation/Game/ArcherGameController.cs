@@ -1,9 +1,10 @@
 using System.Collections.Generic;
 using ArcherLegend.Application;
 using ArcherLegend.Infrastructure;
+using ArcherLegend.Presentation.Result;
 using UnityEngine;
 
-namespace ArcherLegend.Presentation
+namespace ArcherLegend.Presentation.Game
 {
     /// <summary>
     /// Unity 側の調整役です。入力・Transform・GameObject を Application 層の呼び出しへ変換します。
@@ -13,18 +14,24 @@ namespace ArcherLegend.Presentation
         private const float ArenaHalfWidth = 9f;
         private const float ArenaHalfDepth = 6f;
 
-        private readonly List<EnemyPresenter> enemies = new List<EnemyPresenter>();
+        private readonly List<EnemyView> enemies = new List<EnemyView>();
         private ArcherGameSession session;
         private UnityObjectFactory factory;
+        private PlayerProgressService progress;
+        private ISceneNavigator navigator;
         private GameObject player;
-        private GameHudPresenter hud;
+        private GameHudPresenter hudPresenter;
+        private ResultPresenter resultPresenter;
         private float fireTimer;
         private int enemiesToSpawn;
+        private bool isRunFinished;
 
-        public void Construct(ArcherGameSession gameSession, UnityObjectFactory objectFactory)
+        public void Construct(ArcherGameSession gameSession, UnityObjectFactory objectFactory, PlayerProgressService playerProgress, ISceneNavigator sceneNavigator)
         {
             session = gameSession;
             factory = objectFactory;
+            progress = playerProgress;
+            navigator = sceneNavigator;
         }
 
         private void Start()
@@ -34,19 +41,7 @@ namespace ArcherLegend.Presentation
             player = factory.CreatePlayer();
             player.transform.position = Vector3.up * 0.6f;
 
-            foreach (var existingCamera in FindObjectsByType<Camera>(FindObjectsSortMode.None))
-            {
-                existingCamera.enabled = false;
-            }
-
-            var cameraObject = new GameObject("Top Down Camera");
-            var camera = cameraObject.AddComponent<Camera>();
-            camera.transform.position = new Vector3(0f, 13.5f, -2.5f);
-            camera.transform.rotation = Quaternion.Euler(78f, 0f, 0f);
-            camera.orthographic = true;
-            camera.orthographicSize = 8.4f;
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.10f, 0.12f, 0.15f);
+            ArenaCamera.Create(ArenaHalfWidth, ArenaHalfDepth);
 
             var lightObject = new GameObject("Key Light");
             var light = lightObject.AddComponent<Light>();
@@ -54,29 +49,40 @@ namespace ArcherLegend.Presentation
             light.intensity = 1.5f;
             light.transform.rotation = Quaternion.Euler(50f, -35f, 0f);
 
-            hud = new GameObject("Archer HUD").AddComponent<GameHudPresenter>();
-            hud.Construct(type => session.ApplyUpgrade(type), Restart);
+            var hudView = new GameObject("Archer HUD").AddComponent<GameHudView>();
+            hudPresenter = new GameHudPresenter(hudView, session);
+            PresenterLifetime.Bind(hudView.gameObject, hudPresenter);
+
+            var resultView = new GameObject("Result").AddComponent<ResultView>();
+            resultPresenter = new ResultPresenter(resultView, progress, navigator, Restart);
+            PresenterLifetime.Bind(resultView.gameObject, resultPresenter);
 
             BeginWave();
         }
 
         private void Update()
         {
+            // レベルアップの選択中とゲームオーバー後は、敵や矢を含めたゲーム内の時間を止める。
+            // 敵と矢は自分の Update で Time.deltaTime を使って動くので、timeScale を 0 にすれば一括で止まる。
+            // uGUI のボタンは時間停止の影響を受けないので、選択肢やリザルトは操作できる。
+            Time.timeScale = session.IsUpgradePending || session.IsGameOver ? 0f : 1f;
+
             // 大きな状態判断は Domain / Application に任せ、このクラスは Unity 上の反応だけを決めます。
             if (session.IsGameOver)
             {
-                if (Input.GetKeyDown(KeyCode.R))
+                if (!isRunFinished)
                 {
-                    Restart();
+                    isRunFinished = true;
+                    _ = resultPresenter.ShowAsync(session.CreateRunResult());
                 }
 
-                hud.Render(session, enemies.Count);
+                hudPresenter.Refresh(enemies.Count);
                 return;
             }
 
             if (session.IsUpgradePending)
             {
-                hud.Render(session, enemies.Count);
+                hudPresenter.Refresh(enemies.Count);
                 return;
             }
 
@@ -90,7 +96,7 @@ namespace ArcherLegend.Presentation
                 BeginWave();
             }
 
-            hud.Render(session, enemies.Count);
+            hudPresenter.Refresh(enemies.Count);
         }
 
         private void MovePlayer()
@@ -145,14 +151,14 @@ namespace ArcherLegend.Presentation
             }
 
             player.transform.forward = direction.normalized;
-            var arrow = factory.CreateArrow().AddComponent<ArrowPresenter>();
+            var arrow = factory.CreateArrow().AddComponent<ArrowView>();
             arrow.Launch(player.transform.position + Vector3.up * 0.25f + direction.normalized * 0.55f, direction, session.Player.ArrowDamage, 12f, OnEnemyDefeated);
             fireTimer = session.Player.FireCooldown;
         }
 
-        private EnemyPresenter FindNearestEnemy()
+        private EnemyView FindNearestEnemy()
         {
-            EnemyPresenter nearest = null;
+            EnemyView nearest = null;
             var nearestDistance = float.MaxValue;
             foreach (var enemy in enemies)
             {
@@ -189,13 +195,13 @@ namespace ArcherLegend.Presentation
         {
             var angle = index * Mathf.PI * 2f / Mathf.Max(1, enemiesToSpawn);
             var position = new Vector3(Mathf.Cos(angle) * (ArenaHalfWidth - 1.4f), 0.55f, Mathf.Sin(angle) * (ArenaHalfDepth - 1.4f));
-            var enemy = factory.CreateEnemy().AddComponent<EnemyPresenter>();
+            var enemy = factory.CreateEnemy().AddComponent<EnemyView>();
             enemy.transform.position = position;
             enemy.Construct(session.CreateEnemy(), player.transform);
             enemies.Add(enemy);
         }
 
-        private void OnEnemyDefeated(EnemyPresenter enemy)
+        private void OnEnemyDefeated(EnemyView enemy)
         {
             session.RegisterEnemyDefeated(enemy.Model);
             enemies.Remove(enemy);
@@ -222,19 +228,22 @@ namespace ArcherLegend.Presentation
                 }
             }
 
-            foreach (var arrow in FindObjectsByType<ArrowPresenter>(FindObjectsSortMode.None))
+            foreach (var arrow in FindObjectsByType<ArrowView>(FindObjectsSortMode.None))
             {
                 Destroy(arrow.gameObject);
             }
 
             enemies.Clear();
             session.Restart();
+            isRunFinished = false;
             player.transform.position = Vector3.up * 0.6f;
             BeginWave();
         }
 
         private void OnDestroy()
         {
+            // timeScale はシーンをまたいで残るので、ゲーム画面を抜けるときに必ず元に戻す
+            Time.timeScale = 1f;
             session?.Dispose();
         }
     }

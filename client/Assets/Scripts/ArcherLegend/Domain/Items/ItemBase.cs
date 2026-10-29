@@ -14,6 +14,6 @@ namespace ArcherLegend.Domain
         public ItemType ItemType { get; }
         public string DisplayName { get; }
 
-        public abstract void ApplyTo(Player player, UserData userData);
+        public abstract void ApplyTo(Player player);
     }
 }

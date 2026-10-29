@@ -1,22 +1,30 @@
 using ArcherLegend.Application;
 using ArcherLegend.Infrastructure;
 using ArcherLegend.Presentation;
-using ArcherLegend.Presentation.Scenes;
+using ArcherLegend.Presentation.Game;
+using ArcherLegend.Presentation.Home;
+using ArcherLegend.Presentation.Title;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace ArcherLegend.Bootstrap
 {
     /// <summary>
-    /// 依存関係の組み立て場所です。シーンごとに必要な表示役と依存関係を生成します。
+    /// 依存関係の組み立て場所です。アプリ全体で共有するサービスを 1 度だけ作り、シーンごとに View と Presenter を結び付けます。
     /// </summary>
     public static class ArcherGameBootstrap
     {
         private static bool isSubscribed;
+        private static PlayerProgressService progress;
+        private static ISceneNavigator navigator;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
         {
+            // ArcherLegend.Application 名前空間と衝突するため、UnityEngine を明示する
+            progress ??= new PlayerProgressService(new JsonFileSaveDataRepository(UnityEngine.Application.persistentDataPath));
+            navigator ??= new SceneNavigator();
+
             if (!isSubscribed)
             {
                 SceneManager.sceneLoaded += (_, __) => ConfigureActiveScene();
@@ -28,42 +36,42 @@ namespace ArcherLegend.Bootstrap
 
         private static void ConfigureActiveScene()
         {
-            var sceneName = SceneManager.GetActiveScene().name;
-            if (sceneName == SceneNames.Title)
+            switch (SceneManager.GetActiveScene().name)
             {
-                CreateTitleScene();
-                return;
+                case SceneNames.Title:
+                    CreateTitleScene();
+                    break;
+                case SceneNames.Home:
+                    CreateHomeScene();
+                    break;
+                case SceneNames.Game:
+                    CreateGameScene();
+                    break;
             }
-
-            if (sceneName == SceneNames.Home)
-            {
-                CreateHomeScene();
-                return;
-            }
-
-            CreateGameScene();
         }
 
         private static void CreateTitleScene()
         {
-            if (Object.FindFirstObjectByType<MenuScenePresenter>() != null)
+            if (Object.FindFirstObjectByType<TitleView>() != null)
             {
                 return;
             }
 
-            var presenter = new GameObject("Title Scene Presenter").AddComponent<MenuScenePresenter>();
-            presenter.ShowTitle();
+            var view = new GameObject("Title View").AddComponent<TitleView>();
+            PresenterLifetime.Bind(view.gameObject, new TitlePresenter(view, navigator));
         }
 
         private static void CreateHomeScene()
         {
-            if (Object.FindFirstObjectByType<MenuScenePresenter>() != null)
+            if (Object.FindFirstObjectByType<HomeView>() != null)
             {
                 return;
             }
 
-            var presenter = new GameObject("Home Scene Presenter").AddComponent<MenuScenePresenter>();
-            presenter.ShowHome();
+            var view = new GameObject("Home View").AddComponent<HomeView>();
+            var presenter = new HomePresenter(view, progress, navigator);
+            PresenterLifetime.Bind(view.gameObject, presenter);
+            _ = presenter.InitializeAsync();
         }
 
         private static void CreateGameScene()
@@ -75,7 +83,7 @@ namespace ArcherLegend.Bootstrap
 
             var root = new GameObject("Archer Legend Root");
             var controller = root.AddComponent<ArcherGameController>();
-            controller.Construct(new ArcherGameSession(), new UnityObjectFactory());
+            controller.Construct(new ArcherGameSession(), new UnityObjectFactory(), progress, navigator);
         }
     }
 }

@@ -1,0 +1,223 @@
+using System;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using ArcherLegend.Application;
+using ArcherLegend.Domain;
+using ArcherLegend.Presentation.Game;
+using ArcherLegend.Presentation.Home;
+using ArcherLegend.Presentation.Result;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
+
+namespace ArcherLegend.Tests
+{
+    public class HomePresenterTests
+    {
+        [Test]
+        public async Task InitializeAsync_保存済みの戦績を表示する()
+        {
+            var repository = new InMemorySaveDataRepository
+            {
+                Stored = new SaveData { bestScore = 500, bestWave = 9, totalEnemiesDefeated = 80, playCount = 6 }
+            };
+            var view = new FakeHomeView();
+            var presenter = new HomePresenter(view, new PlayerProgressService(repository), new FakeSceneNavigator());
+
+            await presenter.InitializeAsync();
+
+            Assert.That(view.State, Is.EqualTo("Records"));
+            Assert.That(view.Records, Is.EqualTo((500, 9, 80, 6)));
+        }
+
+        [Test]
+        public async Task InitializeAsync_読み込みに失敗したらエラーを表示する()
+        {
+            var repository = new InMemorySaveDataRepository { LoadException = new InvalidOperationException("load failed") };
+            var view = new FakeHomeView();
+            var presenter = new HomePresenter(view, new PlayerProgressService(repository), new FakeSceneNavigator());
+            LogAssert.Expect(LogType.Exception, new Regex("load failed"));
+
+            await presenter.InitializeAsync();
+
+            Assert.That(view.State, Is.EqualTo("LoadError"));
+        }
+
+        [Test]
+        public async Task InitializeAsync_破棄後に読み込みが終わってもViewを更新しない()
+        {
+            var repository = new InMemorySaveDataRepository { PendingLoad = new TaskCompletionSource<SaveData>() };
+            var view = new FakeHomeView();
+            var presenter = new HomePresenter(view, new PlayerProgressService(repository), new FakeSceneNavigator());
+            var task = presenter.InitializeAsync();
+
+            presenter.Dispose();
+            repository.PendingLoad.SetResult(new SaveData { bestScore = 1 });
+            await task;
+
+            Assert.That(view.State, Is.EqualTo("Loading"));
+        }
+
+        [Test]
+        public void ボタン操作で各画面へ遷移する()
+        {
+            var view = new FakeHomeView();
+            var navigator = new FakeSceneNavigator();
+            using (new HomePresenter(view, new PlayerProgressService(new InMemorySaveDataRepository()), navigator))
+            {
+                view.ClickPlay();
+                Assert.That(navigator.Last, Is.EqualTo("Game"));
+
+                view.ClickBackToTitle();
+                Assert.That(navigator.Last, Is.EqualTo("Title"));
+            }
+        }
+    }
+
+    public class ResultPresenterTests
+    {
+        [Test]
+        public async Task ShowAsync_記録を保存して自己ベスト更新を表示する()
+        {
+            var repository = new InMemorySaveDataRepository { Stored = new SaveData { bestScore = 100, bestWave = 5 } };
+            var view = new FakeResultView();
+            var presenter = new ResultPresenter(view, new PlayerProgressService(repository), new FakeSceneNavigator(), () => { });
+
+            await presenter.ShowAsync(new RunResult(score: 150, wave: 4, enemiesDefeated: 10, level: 3));
+
+            Assert.That(view.IsVisible, Is.True);
+            Assert.That(view.Score, Is.EqualTo(150));
+            Assert.That(view.IsNewBestScore, Is.True);
+            Assert.That(view.IsNewBestWave, Is.False);
+            Assert.That(view.IsSaveErrorShown, Is.False);
+            Assert.That(repository.Stored.bestScore, Is.EqualTo(150));
+        }
+
+        [Test]
+        public async Task ShowAsync_保存に失敗しても結果とエラーを表示する()
+        {
+            var repository = new InMemorySaveDataRepository { SaveException = new InvalidOperationException("save failed") };
+            var view = new FakeResultView();
+            var presenter = new ResultPresenter(view, new PlayerProgressService(repository), new FakeSceneNavigator(), () => { });
+            LogAssert.Expect(LogType.Exception, new Regex("save failed"));
+
+            await presenter.ShowAsync(new RunResult(score: 80, wave: 2, enemiesDefeated: 4, level: 1));
+
+            Assert.That(view.IsVisible, Is.True);
+            Assert.That(view.Score, Is.EqualTo(80));
+            Assert.That(view.IsSaveErrorShown, Is.True);
+        }
+
+        [Test]
+        public void Retryで画面を閉じてリトライ処理を呼ぶ()
+        {
+            var view = new FakeResultView();
+            var retried = false;
+            using (new ResultPresenter(view, new PlayerProgressService(new InMemorySaveDataRepository()), new FakeSceneNavigator(), () => retried = true))
+            {
+                view.Show(0, 1, 0, 1, false, false);
+
+                view.ClickRetry();
+
+                Assert.That(retried, Is.True);
+                Assert.That(view.IsVisible, Is.False);
+            }
+        }
+
+        [Test]
+        public void Homeでホーム画面へ遷移する()
+        {
+            var view = new FakeResultView();
+            var navigator = new FakeSceneNavigator();
+            using (new ResultPresenter(view, new PlayerProgressService(new InMemorySaveDataRepository()), navigator, () => { }))
+            {
+                view.ClickHome();
+
+                Assert.That(navigator.Last, Is.EqualTo("Home"));
+            }
+        }
+    }
+
+    public class GameHudPresenterTests
+    {
+        [Test]
+        public void Refresh_レベルアップ待ちになったときだけ強化の選択肢を表示する()
+        {
+            using (var session = new ArcherGameSession())
+            {
+                var view = new FakeGameHudView();
+                var presenter = new GameHudPresenter(view, session);
+
+                presenter.Refresh(aliveEnemies: 0);
+                Assert.That(view.IsUpgradesVisible, Is.False);
+
+                LevelUp(session);
+                presenter.Refresh(aliveEnemies: 0);
+                presenter.Refresh(aliveEnemies: 0);
+
+                Assert.That(view.IsUpgradesVisible, Is.True);
+                Assert.That(view.ShowUpgradesCount, Is.EqualTo(1), "毎フレーム作り直さない");
+            }
+        }
+
+        [Test]
+        public void 選択した強化をプレイヤーに適用して選択肢を閉じる()
+        {
+            using (var session = new ArcherGameSession())
+            {
+                var view = new FakeGameHudView();
+                var presenter = new GameHudPresenter(view, session);
+                LevelUp(session);
+                presenter.Refresh(aliveEnemies: 0);
+
+                view.SelectUpgrade(0);
+                presenter.Refresh(aliveEnemies: 0);
+
+                Assert.That(session.IsUpgradePending, Is.False);
+                Assert.That(view.IsUpgradesVisible, Is.False);
+            }
+        }
+
+        [Test]
+        public void 続けてレベルアップしたら新しい選択肢で表示し直す()
+        {
+            using (var session = new ArcherGameSession())
+            {
+                var view = new FakeGameHudView();
+                var presenter = new GameHudPresenter(view, session);
+                LevelUp(session);
+                presenter.Refresh(aliveEnemies: 0);
+                view.SelectUpgrade(0);
+
+                // 選択直後の同じフレームで次のレベルアップが起きても、古い選択肢を出し続けない
+                LevelUp(session);
+                presenter.Refresh(aliveEnemies: 0);
+
+                Assert.That(view.ShowUpgradesCount, Is.EqualTo(2));
+            }
+        }
+
+        [Test]
+        public void 範囲外の選択は無視する()
+        {
+            using (var session = new ArcherGameSession())
+            {
+                var view = new FakeGameHudView();
+                var presenter = new GameHudPresenter(view, session);
+                LevelUp(session);
+
+                view.SelectUpgrade(5);
+
+                Assert.That(session.IsUpgradePending, Is.True);
+            }
+        }
+
+        private static void LevelUp(ArcherGameSession session)
+        {
+            while (!session.IsUpgradePending)
+            {
+                session.RegisterEnemyDefeated(session.CreateEnemy());
+            }
+        }
+    }
+}

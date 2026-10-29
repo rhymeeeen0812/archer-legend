@@ -1,11 +1,11 @@
 using UnityEngine;
 
-namespace ArcherLegend.Presentation
+namespace ArcherLegend.Presentation.Game
 {
     /// <summary>
     /// 矢の見た目用の橋渡し役です。ダメージ処理は命中時のコールバック経由で外へ委譲します。
     /// </summary>
-    public sealed class ArrowPresenter : MonoBehaviour
+    public sealed class ArrowView : MonoBehaviour
     {
         private const float Radius = 0.38f;
 
@@ -13,9 +13,9 @@ namespace ArcherLegend.Presentation
         private float speed;
         private float life;
         private Vector3 direction;
-        private System.Action<EnemyPresenter> onEnemyHit;
+        private System.Action<EnemyView> onEnemyHit;
 
-        public void Launch(Vector3 start, Vector3 aimDirection, int arrowDamage, float arrowSpeed, System.Action<EnemyPresenter> enemyHit)
+        public void Launch(Vector3 start, Vector3 aimDirection, int arrowDamage, float arrowSpeed, System.Action<EnemyView> enemyHit)
         {
             transform.position = start;
             direction = aimDirection.normalized;
@@ -31,7 +31,7 @@ namespace ArcherLegend.Presentation
             transform.position += direction * speed * Time.deltaTime;
             life -= Time.deltaTime;
 
-            var enemies = FindObjectsByType<EnemyPresenter>(FindObjectsSortMode.None);
+            var enemies = FindObjectsByType<EnemyView>(FindObjectsSortMode.None);
             foreach (var enemy in enemies)
             {
                 if (enemy == null || Vector3.Distance(transform.position, enemy.transform.position) > Radius)

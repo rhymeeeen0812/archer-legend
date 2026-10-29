@@ -1,4 +1,4 @@
-namespace ArcherLegend.Presentation.Scenes
+namespace ArcherLegend.Presentation
 {
     /// <summary>
     /// Unity シーン名を一か所に集約し、文字列の打ち間違いで遷移が壊れないようにします。

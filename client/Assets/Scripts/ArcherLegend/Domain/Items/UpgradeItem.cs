@@ -12,11 +12,10 @@ namespace ArcherLegend.Domain
 
         public UpgradeType UpgradeType { get; }
 
-        public override void ApplyTo(Player player, UserData userData)
+        public override void ApplyTo(Player player)
         {
             ThrowIfDisposed();
             player.ApplyUpgrade(UpgradeType);
-            userData.RegisterUpgradePicked();
         }
     }
 }

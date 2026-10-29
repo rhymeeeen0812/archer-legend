@@ -14,9 +14,9 @@ namespace ArcherLegend.Application
         private bool isDisposed;
 
         public Player Player { get; } = new Player();
-        public UserData UserData { get; } = new UserData();
         public int Wave { get; private set; } = 1;
         public int Score { get; private set; }
+        public int EnemiesDefeated { get; private set; }
         public bool IsUpgradePending { get; private set; }
         public bool IsGameOver => !Player.IsAlive;
 
@@ -33,9 +33,8 @@ namespace ArcherLegend.Application
         public void RegisterEnemyDefeated(Enemy enemy)
         {
             ThrowIfDisposed();
-            var gainedScore = 10 * Wave;
-            Score += gainedScore;
-            UserData.RegisterEnemyDefeated(gainedScore, Wave);
+            Score += 10 * Wave;
+            EnemiesDefeated++;
 
             if (Player.AddExperience(enemy.ExperienceReward))
             {
@@ -58,11 +57,17 @@ namespace ArcherLegend.Application
             ThrowIfDisposed();
             using (var item = new UpgradeItem(upgradeType))
             {
-                item.ApplyTo(Player, UserData);
+                item.ApplyTo(Player);
             }
 
             IsUpgradePending = false;
             CurrentUpgradeOptions = Array.Empty<UpgradeOption>();
+        }
+
+        public RunResult CreateRunResult()
+        {
+            ThrowIfDisposed();
+            return new RunResult(Score, Wave, EnemiesDefeated, Player.Level);
         }
 
         public void Restart()
@@ -72,6 +77,7 @@ namespace ArcherLegend.Application
 
             Wave = 1;
             Score = 0;
+            EnemiesDefeated = 0;
             IsUpgradePending = false;
             CurrentUpgradeOptions = Array.Empty<UpgradeOption>();
             Player.ResetForNewRun();
@@ -86,7 +92,6 @@ namespace ArcherLegend.Application
 
             DisposeEnemies();
             Player.Dispose();
-            UserData.Dispose();
             isDisposed = true;
         }
 

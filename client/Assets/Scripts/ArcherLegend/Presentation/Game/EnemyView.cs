@@ -1,9 +1,9 @@
 using ArcherLegend.Domain;
 using UnityEngine;
 
-namespace ArcherLegend.Presentation
+namespace ArcherLegend.Presentation.Game
 {
-    public sealed class EnemyPresenter : MonoBehaviour
+    public sealed class EnemyView : MonoBehaviour
     {
         public Enemy Model { get; private set; }
 
