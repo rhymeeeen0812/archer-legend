@@ -19,6 +19,7 @@ namespace ArcherLegend.Presentation.Game
         private UnityObjectFactory factory;
         private PlayerProgressService progress;
         private ISceneNavigator navigator;
+        private PlayerInputReader input;
         private GameObject player;
         private BlinkView playerBlink;
         private GameHudPresenter hudPresenter;
@@ -38,6 +39,7 @@ namespace ArcherLegend.Presentation.Game
         private void Start()
         {
             // 構成が固まるまでは Runtime 生成にして、シーン上の手作業セットアップを減らします。
+            input = new PlayerInputReader();
             factory.CreateArena(ArenaHalfWidth, ArenaHalfDepth);
             player = factory.CreatePlayer();
             player.transform.position = Vector3.up * 0.6f;
@@ -89,8 +91,9 @@ namespace ArcherLegend.Presentation.Game
                 return;
             }
 
-            MovePlayer();
-            UpdateCombat();
+            var move = input.Move;
+            MovePlayer(move);
+            UpdateCombat(move);
             CullMissingEnemies();
 
             if (enemies.Count == 0 && enemiesToSpawn <= 0)
@@ -102,27 +105,22 @@ namespace ArcherLegend.Presentation.Game
             hudPresenter.Refresh(enemies.Count);
         }
 
-        private void MovePlayer()
+        private void MovePlayer(Vector2 move)
         {
-            var input = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
-            if (input.sqrMagnitude > 1f)
-            {
-                input.Normalize();
-            }
-
-            player.transform.position += input * session.Player.MoveSpeed * Time.deltaTime;
+            var direction = new Vector3(move.x, 0f, move.y);
+            player.transform.position += direction * session.Player.MoveSpeed * Time.deltaTime;
             player.transform.position = new Vector3(
                 Mathf.Clamp(player.transform.position.x, -ArenaHalfWidth + 0.6f, ArenaHalfWidth - 0.6f),
                 0.6f,
                 Mathf.Clamp(player.transform.position.z, -ArenaHalfDepth + 0.6f, ArenaHalfDepth - 0.6f));
 
-            if (input.sqrMagnitude > 0.01f)
+            if (direction.sqrMagnitude > 0.01f)
             {
-                player.transform.forward = input.normalized;
+                player.transform.forward = direction.normalized;
             }
         }
 
-        private void UpdateCombat()
+        private void UpdateCombat(Vector2 move)
         {
             fireTimer -= Time.deltaTime;
 
@@ -138,8 +136,8 @@ namespace ArcherLegend.Presentation.Game
 
             playerBlink.SetBlinking(session.Player.IsInvincible);
 
-            var movement = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-            if (movement.sqrMagnitude > 0.01f || fireTimer > 0f)
+            // 立ち止まっている間だけ自動で矢を放つ
+            if (move.sqrMagnitude > 0.01f || fireTimer > 0f)
             {
                 return;
             }

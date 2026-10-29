@@ -63,7 +63,7 @@ namespace ArcherLegend.Presentation.Game
             UiFactory.PlaceTopLeft(statusText.rectTransform, new Vector2(12f, -12f), new Vector2(360f, 180f));
 
             var controlsHint = UiFactory.CreateText(transform, "Controls Hint", 16, TextAlignmentOptions.Bottom);
-            controlsHint.text = "WASD / 矢印キーで移動　立ち止まると近くの敵へ自動で矢を放つ";
+            controlsHint.text = "WASD / 矢印キー / 左スティックで移動　立ち止まると近くの敵へ自動で矢を放つ";
             controlsHint.color = new Color(1f, 1f, 1f, 0.7f);
             UiFactory.Stretch(controlsHint.rectTransform, new Vector2(12f, 12f), new Vector2(-12f, -12f));
 

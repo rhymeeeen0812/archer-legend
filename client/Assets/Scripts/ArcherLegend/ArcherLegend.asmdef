@@ -3,7 +3,8 @@
     "rootNamespace": "ArcherLegend",
     "references": [
         "UnityEngine.UI",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.InputSystem"
     ],
     "autoReferenced": true
 }
