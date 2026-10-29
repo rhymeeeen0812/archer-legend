@@ -1,41 +1,22 @@
-# SurveyApp
+# ArcherLegend
 
-アンケートを作成・公開し、回答を集計できる Web アプリです。
+見下ろし視点のウェーブ制アクションゲームと、そのゲームサーバー・運営ツールです。
 
-## 技術構成
+| フォルダ | 内容 | 技術 |
+|---|---|---|
+| [`client/`](client/) | ゲーム本体 | Unity 6 (6000.0.37f1) / URP |
+| [`server/`](server/) | ゲーム用 API・運営ツール（アンケート作成と集計） | ASP.NET Core (.NET 10) / Blazor / PostgreSQL |
 
-- ASP.NET Core (.NET 10) / Blazor (Interactive Server)
-- PostgreSQL 17 / Entity Framework Core
-- ASP.NET Core Identity（ログイン認証）
-- xUnit（テスト）
+## 構成
 
-## ローカルでの起動方法
-
-必要なもの: .NET 10 SDK、Docker
-
-```bash
-# データベースを起動
-docker compose up -d
-
-# EF Core ツールを復元し、マイグレーションを適用
-dotnet tool restore
-dotnet ef database update -p src/SurveyApp
-
-# アプリを起動
-dotnet run --project src/SurveyApp
+```
+[Unity クライアント] ──HTTP──> [ASP.NET Core サーバー] ──> [PostgreSQL]
+                                    └─ 運営ツール (Blazor)
 ```
 
-## テスト
+ログインは行わず、ゲームが初回起動時に作ったプレイヤー ID で識別します。
 
-```bash
-dotnet test
-```
+## 起動方法
 
-## 機能（予定）
-
-- [ ] アンケート作成（単一選択・複数選択・自由記述）
-- [ ] 公開 URL での回答
-- [ ] 結果の集計とグラフ表示
-- [ ] 回答期限・重複回答の防止
-- [ ] CSV 出力
-- [ ] 条件分岐
+- ゲーム: Unity Hub で `client/` を開く
+- サーバー: [`server/README.md`](server/README.md) を参照
