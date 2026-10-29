@@ -53,11 +53,11 @@ namespace ArcherLegend.Presentation.Game
             light.intensity = 1.5f;
             light.transform.rotation = Quaternion.Euler(50f, -35f, 0f);
 
-            var hudView = new GameObject("Archer HUD").AddComponent<GameHudView>();
+            var hudView = ViewPrefabs.Instantiate<GameHudView>();
             hudPresenter = new GameHudPresenter(hudView, session);
             PresenterLifetime.Bind(hudView.gameObject, hudPresenter);
 
-            var resultView = new GameObject("Result").AddComponent<ResultView>();
+            var resultView = ViewPrefabs.Instantiate<ResultView>();
             resultPresenter = new ResultPresenter(resultView, progress, navigator, Restart);
             PresenterLifetime.Bind(resultView.gameObject, resultPresenter);
 

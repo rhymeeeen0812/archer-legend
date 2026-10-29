@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace ArcherLegend.Presentation.Title
 {
@@ -10,26 +11,17 @@ namespace ArcherLegend.Presentation.Title
 
     /// <summary>
     /// タイトル画面の表示です。入力をイベントで通知するだけで、遷移の判断は Presenter に任せます。
+    /// 見た目はプレハブ（Resources/UI/TitleView）で編集します。
     /// </summary>
     public sealed class TitleView : MonoBehaviour, ITitleView
     {
         public event Action StartClicked;
 
+        [SerializeField] private Button startButton;
+
         private void Awake()
         {
-            UiFactory.CreateMenuCamera();
-            UiFactory.SetupCanvas(gameObject);
-
-            var title = UiFactory.CreateText(transform, "Title", 46);
-            title.text = "Archer Legend";
-            UiFactory.PlaceCenter(title.rectTransform, new Vector2(0f, 110f), new Vector2(620f, 72f));
-
-            var message = UiFactory.CreateText(transform, "Message", 20);
-            message.text = "押し寄せる敵を倒して、どこまで生き残れるか挑戦しよう";
-            UiFactory.PlaceCenter(message.rectTransform, new Vector2(0f, 34f), new Vector2(620f, 40f));
-
-            var startButton = UiFactory.CreateButton(transform, "Start Button", "スタート", UiFactory.PrimaryButtonColor, 22);
-            UiFactory.PlaceCenter(startButton.GetComponent<RectTransform>(), new Vector2(0f, -62f), new Vector2(240f, 54f));
+            MenuCamera.Create();
             startButton.onClick.AddListener(() => StartClicked?.Invoke());
         }
     }

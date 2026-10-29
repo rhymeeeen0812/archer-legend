@@ -57,7 +57,7 @@ namespace ArcherLegend.Bootstrap
                 return;
             }
 
-            var view = new GameObject("Title View").AddComponent<TitleView>();
+            var view = ViewPrefabs.Instantiate<TitleView>();
             PresenterLifetime.Bind(view.gameObject, new TitlePresenter(view, navigator));
         }
 
@@ -68,7 +68,7 @@ namespace ArcherLegend.Bootstrap
                 return;
             }
 
-            var view = new GameObject("Home View").AddComponent<HomeView>();
+            var view = ViewPrefabs.Instantiate<HomeView>();
             var presenter = new HomePresenter(view, progress, navigator);
             PresenterLifetime.Bind(view.gameObject, presenter);
             _ = presenter.InitializeAsync();

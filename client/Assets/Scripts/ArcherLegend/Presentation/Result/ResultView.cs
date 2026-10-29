@@ -1,6 +1,7 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace ArcherLegend.Presentation.Result
 {
@@ -16,6 +17,7 @@ namespace ArcherLegend.Presentation.Result
 
     /// <summary>
     /// ゲームオーバー時のリザルト画面です。HUD より手前に重ねて表示します。
+    /// 見た目はプレハブ（Resources/UI/ResultView）で編集します。
     /// </summary>
     public sealed class ResultView : MonoBehaviour, IResultView
     {
@@ -24,9 +26,11 @@ namespace ArcherLegend.Presentation.Result
         public event Action RetryClicked;
         public event Action HomeClicked;
 
-        private GameObject root;
-        private TextMeshProUGUI statsText;
-        private TextMeshProUGUI saveErrorText;
+        [SerializeField] private GameObject root;
+        [SerializeField] private TextMeshProUGUI statsText;
+        [SerializeField] private TextMeshProUGUI saveErrorText;
+        [SerializeField] private Button retryButton;
+        [SerializeField] private Button homeButton;
 
         public void Show(int score, int wave, int enemiesDefeated, int level, bool isNewBestScore, bool isNewBestWave)
         {
@@ -51,32 +55,9 @@ namespace ArcherLegend.Presentation.Result
 
         private void Awake()
         {
-            UiFactory.SetupCanvas(gameObject, sortingOrder: 10);
-
-            root = UiFactory.CreatePanel(transform, "Overlay", UiFactory.OverlayColor).gameObject;
-
-            var title = UiFactory.CreateText(root.transform, "Title", 44);
-            title.text = "ゲームオーバー";
-            UiFactory.PlaceCenter(title.rectTransform, new Vector2(0f, 180f), new Vector2(620f, 64f));
-
-            statsText = UiFactory.CreateText(root.transform, "Stats", 22);
-            statsText.lineSpacing = 30f;
-            UiFactory.PlaceCenter(statsText.rectTransform, new Vector2(0f, 46f), new Vector2(620f, 170f));
-
-            saveErrorText = UiFactory.CreateText(root.transform, "Save Error", 16);
-            saveErrorText.text = "記録を保存できませんでした";
-            saveErrorText.color = UiFactory.HighlightColor;
-            UiFactory.PlaceCenter(saveErrorText.rectTransform, new Vector2(0f, -54f), new Vector2(620f, 30f));
-
-            var retryButton = UiFactory.CreateButton(root.transform, "Retry Button", "もう一度", UiFactory.PrimaryButtonColor, 22);
-            UiFactory.PlaceCenter(retryButton.GetComponent<RectTransform>(), new Vector2(-130f, -120f), new Vector2(220f, 54f));
             retryButton.onClick.AddListener(() => RetryClicked?.Invoke());
-
-            var homeButton = UiFactory.CreateButton(root.transform, "Home Button", "ホームへ", UiFactory.SecondaryButtonColor, 22);
-            UiFactory.PlaceCenter(homeButton.GetComponent<RectTransform>(), new Vector2(130f, -120f), new Vector2(220f, 54f));
             homeButton.onClick.AddListener(() => HomeClicked?.Invoke());
-
-            root.SetActive(false);
+            Hide();
         }
     }
 }
