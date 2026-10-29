@@ -18,6 +18,7 @@ namespace ArcherLegend.Presentation.Game
         private ArcherGameSession session;
         private UnityObjectFactory factory;
         private PlayerProgressService progress;
+        private OnlineSyncService sync;
         private ISceneNavigator navigator;
         private PlayerInputReader input;
         private GameObject player;
@@ -28,11 +29,12 @@ namespace ArcherLegend.Presentation.Game
         private int enemiesToSpawn;
         private bool isRunFinished;
 
-        public void Construct(ArcherGameSession gameSession, UnityObjectFactory objectFactory, PlayerProgressService playerProgress, ISceneNavigator sceneNavigator)
+        public void Construct(ArcherGameSession gameSession, UnityObjectFactory objectFactory, PlayerProgressService playerProgress, OnlineSyncService onlineSync, ISceneNavigator sceneNavigator)
         {
             session = gameSession;
             factory = objectFactory;
             progress = playerProgress;
+            sync = onlineSync;
             navigator = sceneNavigator;
         }
 
@@ -58,7 +60,7 @@ namespace ArcherLegend.Presentation.Game
             PresenterLifetime.Bind(hudView.gameObject, hudPresenter);
 
             var resultView = ViewPrefabs.Instantiate<ResultView>();
-            resultPresenter = new ResultPresenter(resultView, progress, navigator, Restart);
+            resultPresenter = new ResultPresenter(resultView, progress, sync, navigator, Restart);
             PresenterLifetime.Bind(resultView.gameObject, resultPresenter);
 
             BeginWave();

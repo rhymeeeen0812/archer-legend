@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using ArcherLegend.Domain;
 
 namespace ArcherLegend.Application
@@ -10,7 +11,8 @@ namespace ArcherLegend.Application
     [Serializable]
     public sealed class SaveData
     {
-        public const int CurrentVersion = 1;
+        /// <summary>2: プレイヤー Id と未送信のプレイ結果を追加</summary>
+        public const int CurrentVersion = 2;
 
         public int version = CurrentVersion;
         public int bestScore;
@@ -19,17 +21,11 @@ namespace ArcherLegend.Application
         public int totalEnemiesDefeated;
         public int playCount;
 
-        public static SaveData FromUserData(UserData userData)
-        {
-            return new SaveData
-            {
-                bestScore = userData.BestScore,
-                bestWave = userData.BestWave,
-                totalScore = userData.TotalScore,
-                totalEnemiesDefeated = userData.TotalEnemiesDefeated,
-                playCount = userData.PlayCount
-            };
-        }
+        // バージョン 1 のデータでは空になる。読み込み時に Id を作り直す
+        public string playerId;
+        public string playerName;
+        public bool isRegistered;
+        public List<PendingRun> pendingRuns = new List<PendingRun>();
 
         public UserData ToUserData()
         {

@@ -49,6 +49,53 @@ namespace ArcherLegend.Tests
         }
     }
 
+    internal sealed class FakeGameApiClient : IGameApiClient
+    {
+        public List<string> RegisteredIds { get; } = new List<string>();
+        public List<string> SubmittedRunIds { get; } = new List<string>();
+        public Exception RegisterException { get; set; }
+        public Exception RankingException { get; set; }
+        public Ranking Ranking { get; set; } = new Ranking(Array.Empty<RankingEntry>(), null);
+
+        /// <summary>送信するプレイ結果ごとに、投げる例外を決めます（null なら成功）。</summary>
+        public Func<PendingRun, Exception> SubmitFailure { get; set; }
+
+        /// <summary>設定すると、送信はこの Task が完了するまで終わらない（通信待ちの再現用）。</summary>
+        public TaskCompletionSource<bool> PendingSubmit { get; set; }
+
+        public Task RegisterPlayerAsync(string playerId, string name, CancellationToken cancellationToken)
+        {
+            if (RegisterException != null)
+            {
+                return Task.FromException(RegisterException);
+            }
+
+            RegisteredIds.Add(playerId);
+            return Task.CompletedTask;
+        }
+
+        public async Task SubmitRunAsync(string playerId, PendingRun run, CancellationToken cancellationToken)
+        {
+            if (PendingSubmit != null)
+            {
+                await PendingSubmit.Task;
+            }
+
+            var failure = SubmitFailure?.Invoke(run);
+            if (failure != null)
+            {
+                throw failure;
+            }
+
+            SubmittedRunIds.Add(run.runId);
+        }
+
+        public Task<Ranking> GetRankingAsync(string playerId, int limit, CancellationToken cancellationToken)
+        {
+            return RankingException != null ? Task.FromException<Ranking>(RankingException) : Task.FromResult(Ranking);
+        }
+    }
+
     internal sealed class FakeSceneNavigator : ISceneNavigator
     {
         public string Last { get; private set; }
@@ -75,6 +122,19 @@ namespace ArcherLegend.Tests
         }
 
         public void ShowLoadError() => State = "LoadError";
+
+        public string RankingState { get; private set; }
+        public Ranking Ranking { get; private set; }
+
+        public void ShowRankingLoading() => RankingState = "Loading";
+
+        public void ShowRanking(Ranking ranking)
+        {
+            RankingState = "Ranking";
+            Ranking = ranking;
+        }
+
+        public void ShowRankingUnavailable() => RankingState = "Unavailable";
 
         public void ClickPlay() => PlayClicked?.Invoke();
         public void ClickBackToTitle() => BackToTitleClicked?.Invoke();

@@ -1,4 +1,6 @@
 using System;
+using System.Text;
+using ArcherLegend.Application;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,6 +15,9 @@ namespace ArcherLegend.Presentation.Home
         void ShowLoading();
         void ShowRecords(int bestScore, int bestWave, int totalEnemiesDefeated, int playCount);
         void ShowLoadError();
+        void ShowRankingLoading();
+        void ShowRanking(Ranking ranking);
+        void ShowRankingUnavailable();
     }
 
     /// <summary>
@@ -24,7 +29,10 @@ namespace ArcherLegend.Presentation.Home
         public event Action PlayClicked;
         public event Action BackToTitleClicked;
 
+        private const string RankingHeader = "<b>ランキング</b>\n";
+
         [SerializeField] private TextMeshProUGUI recordsText;
+        [SerializeField] private TextMeshProUGUI rankingText;
         [SerializeField] private Button playButton;
         [SerializeField] private Button backToTitleButton;
 
@@ -45,6 +53,46 @@ namespace ArcherLegend.Presentation.Home
         public void ShowLoadError()
         {
             recordsText.text = "セーブデータを読み込めませんでした";
+        }
+
+        public void ShowRankingLoading()
+        {
+            rankingText.text = RankingHeader + "読み込み中…";
+        }
+
+        public void ShowRanking(Ranking ranking)
+        {
+            if (ranking.Entries.Count == 0)
+            {
+                rankingText.text = RankingHeader + "まだ記録がありません";
+                return;
+            }
+
+            var builder = new StringBuilder(RankingHeader);
+            foreach (var entry in ranking.Entries)
+            {
+                builder.AppendLine(FormatEntry(entry));
+            }
+
+            // 上位に入っていなくても自分の順位は出す
+            if (ranking.Me is RankingEntry me && me.Rank > ranking.Entries.Count)
+            {
+                builder.AppendLine("…");
+                builder.AppendLine(FormatEntry(me));
+            }
+
+            rankingText.text = builder.ToString().TrimEnd();
+        }
+
+        public void ShowRankingUnavailable()
+        {
+            rankingText.text = RankingHeader + "サーバーに接続できませんでした";
+        }
+
+        private static string FormatEntry(RankingEntry entry)
+        {
+            var line = $"{entry.Rank}位  {entry.Name}  {entry.BestScore}";
+            return entry.IsMe ? $"<color=#FFD54A>{line}</color>" : line;
         }
 
         private void Awake()

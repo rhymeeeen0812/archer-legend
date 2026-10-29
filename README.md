@@ -18,5 +18,8 @@
 
 ## 起動方法
 
-- ゲーム: Unity Hub で `client/` を開く
-- サーバー: [`server/README.md`](server/README.md) を参照
+1. サーバーを起動する（[`server/README.md`](server/README.md) を参照）
+2. Unity Hub で `client/` を開き、`TitleScene` から再生する
+
+接続先は `client/Assets/Resources/GameServerSettings.asset` で変更できます（既定は `http://localhost:5032`）。
+サーバーが起動していなくてもゲームは遊べます。プレイ結果はセーブデータに残し、次に接続できたときにまとめて送ります。

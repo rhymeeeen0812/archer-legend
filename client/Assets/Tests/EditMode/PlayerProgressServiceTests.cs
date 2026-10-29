@@ -48,14 +48,61 @@ namespace ArcherLegend.Tests
         {
             var repository = new InMemorySaveDataRepository();
             var service = new PlayerProgressService(repository);
-            var userData = await service.LoadAsync();
-            userData.RecordRun(new RunResult(score: 90, wave: 4, enemiesDefeated: 6, level: 2));
+            await service.RecordRunAsync(new RunResult(score: 90, wave: 4, enemiesDefeated: 6, level: 2));
 
             await service.SaveAsync();
 
             Assert.That(repository.Stored.bestScore, Is.EqualTo(90));
             Assert.That(repository.Stored.bestWave, Is.EqualTo(4));
             Assert.That(repository.Stored.playCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public async Task RecordRunAsync_結果をサーバーへの送信待ちとして保存する()
+        {
+            var repository = new InMemorySaveDataRepository();
+            var service = new PlayerProgressService(repository);
+
+            await service.RecordRunAsync(new RunResult(score: 90, wave: 4, enemiesDefeated: 6, level: 2));
+            await service.SaveAsync();
+
+            var pending = repository.Stored.pendingRuns;
+            Assert.That(pending, Has.Count.EqualTo(1));
+            Assert.That(Guid.TryParse(pending[0].runId, out _), Is.True);
+            Assert.That(pending[0].score, Is.EqualTo(90));
+        }
+
+        [Test]
+        public async Task LoadProfileAsync_初回はIdと仮の名前を作り保存後も同じIdを使う()
+        {
+            var repository = new InMemorySaveDataRepository();
+            var service = new PlayerProgressService(repository);
+            var first = await service.LoadProfileAsync();
+            await service.SaveAsync();
+
+            var reloaded = await new PlayerProgressService(repository).LoadProfileAsync();
+
+            Assert.That(Guid.TryParse(first.Id, out _), Is.True);
+            Assert.That(first.Name, Does.StartWith("アーチャー"));
+            Assert.That(first.IsRegistered, Is.False);
+            Assert.That(reloaded.Id, Is.EqualTo(first.Id));
+        }
+
+        [Test]
+        public async Task LoadAsync_プレイヤーIdのない古いセーブデータも戦績を引き継ぐ()
+        {
+            var repository = new InMemorySaveDataRepository
+            {
+                Stored = new SaveData { version = 1, bestScore = 70, playCount = 3, pendingRuns = null }
+            };
+            var service = new PlayerProgressService(repository);
+
+            var userData = await service.LoadAsync();
+            var profile = await service.LoadProfileAsync();
+
+            Assert.That(userData.BestScore, Is.EqualTo(70));
+            Assert.That(profile.Id, Is.Not.Empty);
+            Assert.That(await service.GetPendingRunsAsync(), Is.Empty);
         }
     }
 }

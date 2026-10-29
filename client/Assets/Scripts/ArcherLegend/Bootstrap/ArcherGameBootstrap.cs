@@ -16,6 +16,7 @@ namespace ArcherLegend.Bootstrap
     {
         private static bool isSubscribed;
         private static PlayerProgressService progress;
+        private static OnlineSyncService sync;
         private static ISceneNavigator navigator;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -23,6 +24,7 @@ namespace ArcherLegend.Bootstrap
         {
             // ArcherLegend.Application 名前空間と衝突するため、UnityEngine を明示する
             progress ??= new PlayerProgressService(new JsonFileSaveDataRepository(UnityEngine.Application.persistentDataPath));
+            sync ??= new OnlineSyncService(progress, new UnityWebRequestGameApiClient(GameServerSettings.LoadBaseUrl()));
             navigator ??= new SceneNavigator();
 
             if (!isSubscribed)
@@ -69,7 +71,7 @@ namespace ArcherLegend.Bootstrap
             }
 
             var view = ViewPrefabs.Instantiate<HomeView>();
-            var presenter = new HomePresenter(view, progress, navigator);
+            var presenter = new HomePresenter(view, progress, sync, navigator);
             PresenterLifetime.Bind(view.gameObject, presenter);
             _ = presenter.InitializeAsync();
         }
@@ -83,7 +85,7 @@ namespace ArcherLegend.Bootstrap
 
             var root = new GameObject("Archer Legend Root");
             var controller = root.AddComponent<ArcherGameController>();
-            controller.Construct(new ArcherGameSession(), new UnityObjectFactory(), progress, navigator);
+            controller.Construct(new ArcherGameSession(), new UnityObjectFactory(), progress, sync, navigator);
         }
     }
 }

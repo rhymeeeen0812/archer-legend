@@ -10,14 +10,16 @@ namespace ArcherLegend.Presentation.Result
     {
         private readonly IResultView view;
         private readonly PlayerProgressService progress;
+        private readonly OnlineSyncService sync;
         private readonly ISceneNavigator navigator;
         private readonly Action retry;
         private bool isDisposed;
 
-        public ResultPresenter(IResultView view, PlayerProgressService progress, ISceneNavigator navigator, Action retry)
+        public ResultPresenter(IResultView view, PlayerProgressService progress, OnlineSyncService sync, ISceneNavigator navigator, Action retry)
         {
             this.view = view;
             this.progress = progress;
+            this.sync = sync;
             this.navigator = navigator;
             this.retry = retry;
             view.RetryClicked += OnRetryClicked;
@@ -26,6 +28,7 @@ namespace ArcherLegend.Presentation.Result
 
         /// <summary>
         /// ランの結果を記録・保存してからリザルトを表示します。保存に失敗しても結果は表示します。
+        /// サーバーへの送信は表示の後に行い、通信を待たずに次のプレイへ進めるようにします。
         /// </summary>
         public async Task ShowAsync(RunResult run)
         {
@@ -33,8 +36,7 @@ namespace ArcherLegend.Presentation.Result
             var isSaved = false;
             try
             {
-                var userData = await progress.LoadAsync();
-                record = userData.RecordRun(run);
+                record = await progress.RecordRunAsync(run);
                 await progress.SaveAsync();
                 isSaved = true;
             }
@@ -52,6 +54,17 @@ namespace ArcherLegend.Presentation.Result
             if (!isSaved)
             {
                 view.ShowSaveError();
+                return;
+            }
+
+            try
+            {
+                await sync.SyncAsync();
+            }
+            catch (Exception e)
+            {
+                // 送れなかった結果はセーブデータに残り、次の同期（ホーム画面など）で送り直す
+                Debug.LogWarning($"Failed to send run result: {e.Message}");
             }
         }
 

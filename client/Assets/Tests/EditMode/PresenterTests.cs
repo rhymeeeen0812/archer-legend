@@ -7,6 +7,7 @@ using ArcherLegend.Presentation.Game;
 using ArcherLegend.Presentation.Home;
 using ArcherLegend.Presentation.Result;
 using NUnit.Framework;
+using static ArcherLegend.Tests.PresenterFactory;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -22,7 +23,7 @@ namespace ArcherLegend.Tests
                 Stored = new SaveData { bestScore = 500, bestWave = 9, totalEnemiesDefeated = 80, playCount = 6 }
             };
             var view = new FakeHomeView();
-            var presenter = new HomePresenter(view, new PlayerProgressService(repository), new FakeSceneNavigator());
+            var presenter = CreateHomePresenter(view, repository, new FakeGameApiClient(), new FakeSceneNavigator());
 
             await presenter.InitializeAsync();
 
@@ -35,7 +36,7 @@ namespace ArcherLegend.Tests
         {
             var repository = new InMemorySaveDataRepository { LoadException = new InvalidOperationException("load failed") };
             var view = new FakeHomeView();
-            var presenter = new HomePresenter(view, new PlayerProgressService(repository), new FakeSceneNavigator());
+            var presenter = CreateHomePresenter(view, repository, new FakeGameApiClient(), new FakeSceneNavigator());
             LogAssert.Expect(LogType.Exception, new Regex("load failed"));
 
             await presenter.InitializeAsync();
@@ -48,7 +49,7 @@ namespace ArcherLegend.Tests
         {
             var repository = new InMemorySaveDataRepository { PendingLoad = new TaskCompletionSource<SaveData>() };
             var view = new FakeHomeView();
-            var presenter = new HomePresenter(view, new PlayerProgressService(repository), new FakeSceneNavigator());
+            var presenter = CreateHomePresenter(view, repository, new FakeGameApiClient(), new FakeSceneNavigator());
             var task = presenter.InitializeAsync();
 
             presenter.Dispose();
@@ -59,11 +60,41 @@ namespace ArcherLegend.Tests
         }
 
         [Test]
+        public async Task InitializeAsync_戦績の後にランキングを表示する()
+        {
+            var api = new FakeGameApiClient
+            {
+                Ranking = new Ranking(new[] { new RankingEntry(1, "トップ", 900, 12, false) }, null)
+            };
+            var view = new FakeHomeView();
+            var presenter = CreateHomePresenter(view, new InMemorySaveDataRepository(), api, new FakeSceneNavigator());
+
+            await presenter.InitializeAsync();
+
+            Assert.That(view.State, Is.EqualTo("Records"));
+            Assert.That(view.RankingState, Is.EqualTo("Ranking"));
+            Assert.That(view.Ranking, Is.SameAs(api.Ranking));
+        }
+
+        [Test]
+        public async Task InitializeAsync_サーバーに接続できなくても戦績は表示する()
+        {
+            var api = new FakeGameApiClient { RegisterException = new GameApiException(0, "offline") };
+            var view = new FakeHomeView();
+            var presenter = CreateHomePresenter(view, new InMemorySaveDataRepository(), api, new FakeSceneNavigator());
+
+            await presenter.InitializeAsync();
+
+            Assert.That(view.State, Is.EqualTo("Records"));
+            Assert.That(view.RankingState, Is.EqualTo("Unavailable"));
+        }
+
+        [Test]
         public void ボタン操作で各画面へ遷移する()
         {
             var view = new FakeHomeView();
             var navigator = new FakeSceneNavigator();
-            using (new HomePresenter(view, new PlayerProgressService(new InMemorySaveDataRepository()), navigator))
+            using (CreateHomePresenter(view, new InMemorySaveDataRepository(), new FakeGameApiClient(), navigator))
             {
                 view.ClickPlay();
                 Assert.That(navigator.Last, Is.EqualTo("Game"));
@@ -77,11 +108,39 @@ namespace ArcherLegend.Tests
     public class ResultPresenterTests
     {
         [Test]
+        public async Task ShowAsync_保存した結果をサーバーへ送る()
+        {
+            var repository = new InMemorySaveDataRepository();
+            var api = new FakeGameApiClient();
+            var presenter = CreateResultPresenter(new FakeResultView(), repository, api, new FakeSceneNavigator(), () => { });
+
+            await presenter.ShowAsync(new RunResult(score: 150, wave: 4, enemiesDefeated: 10, level: 3));
+
+            Assert.That(api.SubmittedRunIds, Has.Count.EqualTo(1));
+            Assert.That(repository.Stored.pendingRuns, Is.Empty);
+        }
+
+        [Test]
+        public async Task ShowAsync_送信に失敗しても結果は送信待ちとして残る()
+        {
+            var repository = new InMemorySaveDataRepository();
+            var api = new FakeGameApiClient { RegisterException = new GameApiException(0, "offline") };
+            var view = new FakeResultView();
+            var presenter = CreateResultPresenter(view, repository, api, new FakeSceneNavigator(), () => { });
+
+            await presenter.ShowAsync(new RunResult(score: 150, wave: 4, enemiesDefeated: 10, level: 3));
+
+            Assert.That(view.IsVisible, Is.True);
+            Assert.That(view.IsSaveErrorShown, Is.False);
+            Assert.That(repository.Stored.pendingRuns, Has.Count.EqualTo(1));
+        }
+
+        [Test]
         public async Task ShowAsync_記録を保存して自己ベスト更新を表示する()
         {
             var repository = new InMemorySaveDataRepository { Stored = new SaveData { bestScore = 100, bestWave = 5 } };
             var view = new FakeResultView();
-            var presenter = new ResultPresenter(view, new PlayerProgressService(repository), new FakeSceneNavigator(), () => { });
+            var presenter = CreateResultPresenter(view, repository, new FakeGameApiClient(), new FakeSceneNavigator(), () => { });
 
             await presenter.ShowAsync(new RunResult(score: 150, wave: 4, enemiesDefeated: 10, level: 3));
 
@@ -98,7 +157,7 @@ namespace ArcherLegend.Tests
         {
             var repository = new InMemorySaveDataRepository { SaveException = new InvalidOperationException("save failed") };
             var view = new FakeResultView();
-            var presenter = new ResultPresenter(view, new PlayerProgressService(repository), new FakeSceneNavigator(), () => { });
+            var presenter = CreateResultPresenter(view, repository, new FakeGameApiClient(), new FakeSceneNavigator(), () => { });
             LogAssert.Expect(LogType.Exception, new Regex("save failed"));
 
             await presenter.ShowAsync(new RunResult(score: 80, wave: 2, enemiesDefeated: 4, level: 1));
@@ -113,7 +172,7 @@ namespace ArcherLegend.Tests
         {
             var view = new FakeResultView();
             var retried = false;
-            using (new ResultPresenter(view, new PlayerProgressService(new InMemorySaveDataRepository()), new FakeSceneNavigator(), () => retried = true))
+            using (CreateResultPresenter(view, new InMemorySaveDataRepository(), new FakeGameApiClient(), new FakeSceneNavigator(), () => retried = true))
             {
                 view.Show(0, 1, 0, 1, false, false);
 
@@ -129,7 +188,7 @@ namespace ArcherLegend.Tests
         {
             var view = new FakeResultView();
             var navigator = new FakeSceneNavigator();
-            using (new ResultPresenter(view, new PlayerProgressService(new InMemorySaveDataRepository()), navigator, () => { }))
+            using (CreateResultPresenter(view, new InMemorySaveDataRepository(), new FakeGameApiClient(), navigator, () => { }))
             {
                 view.ClickHome();
 
@@ -218,6 +277,21 @@ namespace ArcherLegend.Tests
             {
                 session.RegisterEnemyDefeated(session.CreateEnemy());
             }
+        }
+    }
+
+    internal static class PresenterFactory
+    {
+        public static HomePresenter CreateHomePresenter(FakeHomeView view, InMemorySaveDataRepository repository, FakeGameApiClient api, FakeSceneNavigator navigator)
+        {
+            var progress = new PlayerProgressService(repository);
+            return new HomePresenter(view, progress, new OnlineSyncService(progress, api), navigator);
+        }
+
+        public static ResultPresenter CreateResultPresenter(FakeResultView view, InMemorySaveDataRepository repository, FakeGameApiClient api, FakeSceneNavigator navigator, Action retry)
+        {
+            var progress = new PlayerProgressService(repository);
+            return new ResultPresenter(view, progress, new OnlineSyncService(progress, api), navigator, retry);
         }
     }
 }
