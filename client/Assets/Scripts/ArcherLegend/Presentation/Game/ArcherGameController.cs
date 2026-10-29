@@ -20,6 +20,7 @@ namespace ArcherLegend.Presentation.Game
         private PlayerProgressService progress;
         private ISceneNavigator navigator;
         private GameObject player;
+        private BlinkView playerBlink;
         private GameHudPresenter hudPresenter;
         private ResultPresenter resultPresenter;
         private float fireTimer;
@@ -40,6 +41,7 @@ namespace ArcherLegend.Presentation.Game
             factory.CreateArena(ArenaHalfWidth, ArenaHalfDepth);
             player = factory.CreatePlayer();
             player.transform.position = Vector3.up * 0.6f;
+            playerBlink = player.AddComponent<BlinkView>();
 
             ArenaCamera.Create(ArenaHalfWidth, ArenaHalfDepth);
 
@@ -73,6 +75,7 @@ namespace ArcherLegend.Presentation.Game
                 if (!isRunFinished)
                 {
                     isRunFinished = true;
+                    playerBlink.SetBlinking(false);
                     _ = resultPresenter.ShowAsync(session.CreateRunResult());
                 }
 
@@ -123,13 +126,17 @@ namespace ArcherLegend.Presentation.Game
         {
             fireTimer -= Time.deltaTime;
 
+            // 被弾後の無敵時間中は敵に触れてもダメージを受けず、その間はプレイヤーを点滅させる
+            session.Player.TickInvincibility(Time.deltaTime);
             foreach (var enemy in enemies)
             {
-                if (enemy != null && enemy.TryDealContactDamage(Time.deltaTime, out var damage))
+                if (enemy != null && enemy.IsTouchingTarget() && session.Player.TryTakeHit(enemy.Model.ContactDamage))
                 {
-                    session.Player.TakeDamage(damage);
+                    break;
                 }
             }
+
+            playerBlink.SetBlinking(session.Player.IsInvincible);
 
             var movement = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
             if (movement.sqrMagnitude > 0.01f || fireTimer > 0f)

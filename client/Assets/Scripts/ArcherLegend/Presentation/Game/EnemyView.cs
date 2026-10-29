@@ -7,8 +7,9 @@ namespace ArcherLegend.Presentation.Game
     {
         public Enemy Model { get; private set; }
 
+        private const float ContactDistance = 1.05f;
+
         private Transform target;
-        private float contactTimer;
 
         public void Construct(Enemy enemy, Transform player)
         {
@@ -28,25 +29,9 @@ namespace ArcherLegend.Presentation.Game
             return true;
         }
 
-        public bool TryDealContactDamage(float deltaTime, out int damage)
+        public bool IsTouchingTarget()
         {
-            contactTimer -= deltaTime;
-            damage = 0;
-
-            if (target == null || contactTimer > 0f)
-            {
-                return false;
-            }
-
-            var distance = Vector3.Distance(transform.position, target.position);
-            if (distance > 1.05f)
-            {
-                return false;
-            }
-
-            contactTimer = 0.75f;
-            damage = Model.ContactDamage;
-            return true;
+            return target != null && Vector3.Distance(transform.position, target.position) <= ContactDistance;
         }
 
         private void Update()
