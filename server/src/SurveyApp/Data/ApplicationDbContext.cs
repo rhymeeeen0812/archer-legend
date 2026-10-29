@@ -5,6 +5,7 @@ namespace SurveyApp.Data;
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
 {
     public DbSet<Player> Players => Set<Player>();
+    public DbSet<Run> Runs => Set<Run>();
     public DbSet<Survey> Surveys => Set<Survey>();
     public DbSet<Question> Questions => Set<Question>();
     public DbSet<Choice> Choices => Set<Choice>();
@@ -19,7 +20,23 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             // Id はゲーム側で生成するので DB では採番しない
             e.Property(p => p.Id).ValueGeneratedNever();
-            e.Property(p => p.Name).HasMaxLength(20);
+            e.Property(p => p.Name).HasMaxLength(Player.NameMaxLength);
+            e.Property(p => p.Version).IsRowVersion();
+
+            // ランキングの並び順（スコアの高い順、同点なら先に達成した順）
+            e.HasIndex(p => new { p.BestScore, p.BestScoreAchievedAt })
+                .IsDescending(true, false);
+        });
+
+        builder.Entity<Run>(e =>
+        {
+            e.Property(r => r.Id).ValueGeneratedNever();
+
+            e.HasOne(r => r.Player).WithMany()
+                .HasForeignKey(r => r.PlayerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(r => new { r.PlayerId, r.PlayedAt });
         });
 
         builder.Entity<Survey>(e =>

@@ -89,6 +89,15 @@ namespace SurveyApp.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("BestScore")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("BestScoreAchievedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("BestWave")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -97,7 +106,25 @@ namespace SurveyApp.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<int>("PlayCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalEnemiesDefeated")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("TotalScore")
+                        .HasColumnType("bigint");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("BestScore", "BestScoreAchievedAt")
+                        .IsDescending(true, false);
 
                     b.ToTable("Players");
                 });
@@ -162,6 +189,42 @@ namespace SurveyApp.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Responses");
+                });
+
+            modelBuilder.Entity("SurveyApp.Data.Run", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("EnemiesDefeated")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsNewBestScore")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsNewBestWave")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("PlayedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Wave")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlayerId", "PlayedAt");
+
+                    b.ToTable("Runs");
                 });
 
             modelBuilder.Entity("SurveyApp.Data.Survey", b =>
@@ -263,6 +326,17 @@ namespace SurveyApp.Data.Migrations
                     b.Navigation("Player");
 
                     b.Navigation("Survey");
+                });
+
+            modelBuilder.Entity("SurveyApp.Data.Run", b =>
+                {
+                    b.HasOne("SurveyApp.Data.Player", "Player")
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Player");
                 });
 
             modelBuilder.Entity("SurveyApp.Data.Question", b =>
