@@ -8,6 +8,7 @@ using ArcherLegend.Presentation;
 using ArcherLegend.Presentation.Game;
 using ArcherLegend.Presentation.Home;
 using ArcherLegend.Presentation.Result;
+using ArcherLegend.Presentation.Surveys;
 
 namespace ArcherLegend.Tests
 {
@@ -94,6 +95,45 @@ namespace ArcherLegend.Tests
         {
             return RankingException != null ? Task.FromException<Ranking>(RankingException) : Task.FromResult(Ranking);
         }
+
+        public List<Survey> Surveys { get; } = new List<Survey>();
+        public Exception SurveyException { get; set; }
+        public Exception SubmitSurveyException { get; set; }
+        public List<(string surveyId, IReadOnlyList<SurveyAnswer> answers)> SubmittedSurveys { get; } = new List<(string, IReadOnlyList<SurveyAnswer>)>();
+
+        /// <summary>設定すると、アンケートの送信はこの Task が完了するまで終わらない（通信待ちの再現用）。</summary>
+        public TaskCompletionSource<bool> PendingSurveySubmit { get; set; }
+
+        /// <summary>この回数だけ、アンケートの取得に 404 を返します（サーバーからプレイヤーが消えた状態の再現用）。</summary>
+        public int SurveyNotFoundCount { get; set; }
+
+        public Task<IReadOnlyList<Survey>> GetSurveysAsync(string playerId, CancellationToken cancellationToken)
+        {
+            if (SurveyNotFoundCount > 0)
+            {
+                SurveyNotFoundCount--;
+                return Task.FromException<IReadOnlyList<Survey>>(new GameApiException(404, "not found"));
+            }
+
+            return SurveyException != null
+                ? Task.FromException<IReadOnlyList<Survey>>(SurveyException)
+                : Task.FromResult<IReadOnlyList<Survey>>(Surveys.ToArray());
+        }
+
+        public async Task SubmitSurveyResponseAsync(string playerId, string surveyId, IReadOnlyList<SurveyAnswer> answers, CancellationToken cancellationToken)
+        {
+            if (PendingSurveySubmit != null)
+            {
+                await PendingSurveySubmit.Task;
+            }
+
+            if (SubmitSurveyException != null)
+            {
+                throw SubmitSurveyException;
+            }
+
+            SubmittedSurveys.Add((surveyId, answers));
+        }
     }
 
     internal sealed class FakeSceneNavigator : ISceneNavigator
@@ -135,6 +175,12 @@ namespace ArcherLegend.Tests
         }
 
         public void ShowRankingUnavailable() => RankingState = "Unavailable";
+
+        public event Action SurveyClicked;
+        public bool IsSurveyAvailable { get; private set; }
+
+        public void SetSurveyAvailable(bool available) => IsSurveyAvailable = available;
+        public void ClickSurvey() => SurveyClicked?.Invoke();
 
         public void ClickPlay() => PlayClicked?.Invoke();
         public void ClickBackToTitle() => BackToTitleClicked?.Invoke();
@@ -188,5 +234,77 @@ namespace ArcherLegend.Tests
         public void HideUpgrades() => IsUpgradesVisible = false;
 
         public void SelectUpgrade(int index) => UpgradeSelected?.Invoke(index);
+    }
+
+    internal sealed class FakeSurveyView : ISurveyView
+    {
+        public event Action<int> ChoiceClicked;
+        public event Action<string> TextChanged;
+        public event Action NextClicked;
+        public event Action BackClicked;
+        public event Action CloseClicked;
+
+        public bool IsVisible { get; private set; }
+        public int PageIndex { get; private set; }
+        public IReadOnlyList<string> Choices { get; private set; }
+        public string Text { get; private set; }
+        public IReadOnlyCollection<int> Selected { get; private set; }
+        public bool CanGoBack { get; private set; }
+        public bool CanProceed { get; private set; }
+        public bool IsLastPage { get; private set; }
+        public string Error { get; private set; }
+        public string Message { get; private set; }
+
+        public void Show() => IsVisible = true;
+        public void Hide() => IsVisible = false;
+
+        public string Intro { get; private set; }
+
+        public void ShowIntro(string surveyTitle, string description) => Intro = description;
+
+        public void ShowQuestion(string surveyTitle, int pageIndex, int pageCount, string question, string hint, IReadOnlyList<string> choices, string text)
+        {
+            Intro = null;
+            PageIndex = pageIndex;
+            Choices = choices;
+            Text = text;
+            Error = null;
+            Message = null;
+        }
+
+        public void SetSelectedChoices(IReadOnlyCollection<int> selected) => Selected = selected;
+
+        public void SetNavigation(bool canGoBack, bool canProceed, bool isLastPage)
+        {
+            CanGoBack = canGoBack;
+            CanProceed = canProceed;
+            IsLastPage = isLastPage;
+        }
+
+        public void ShowSubmitting() => Error = "Submitting";
+        public void ShowError(string message) => Error = message;
+        public void ShowMessage(string message) => Message = message;
+
+        public void ClickChoice(int index) => ChoiceClicked?.Invoke(index);
+        public void InputText(string text) => TextChanged?.Invoke(text);
+        public void ClickNext() => NextClicked?.Invoke();
+        public void ClickBack() => BackClicked?.Invoke();
+        public void ClickClose() => CloseClicked?.Invoke();
+    }
+
+    internal static class TestSurveys
+    {
+        /// <summary>Q1: 単一選択（必須） / Q2: 複数選択（任意） / Q3: 自由記述（任意）</summary>
+        public static Survey Create(string description = "")
+        {
+            return new Survey("survey-1", "満足度調査", description, new[]
+            {
+                new SurveyQuestion(1, "楽しかったですか？", SurveyQuestionType.SingleChoice, true,
+                    new[] { new SurveyChoice(11, "とても楽しい"), new SurveyChoice(12, "楽しい") }),
+                new SurveyQuestion(2, "好きな強化は？", SurveyQuestionType.MultipleChoice, false,
+                    new[] { new SurveyChoice(21, "連射"), new SurveyChoice(22, "強弓"), new SurveyChoice(23, "活力") }),
+                new SurveyQuestion(3, "ご意見をどうぞ", SurveyQuestionType.FreeText, false, Array.Empty<SurveyChoice>())
+            });
+        }
     }
 }

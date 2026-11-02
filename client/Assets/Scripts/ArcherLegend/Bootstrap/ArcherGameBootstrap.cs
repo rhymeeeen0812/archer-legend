@@ -3,6 +3,7 @@ using ArcherLegend.Infrastructure;
 using ArcherLegend.Presentation;
 using ArcherLegend.Presentation.Game;
 using ArcherLegend.Presentation.Home;
+using ArcherLegend.Presentation.Surveys;
 using ArcherLegend.Presentation.Title;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -17,6 +18,7 @@ namespace ArcherLegend.Bootstrap
         private static bool isSubscribed;
         private static PlayerProgressService progress;
         private static OnlineSyncService sync;
+        private static SurveyService surveys;
         private static ISceneNavigator navigator;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -24,7 +26,13 @@ namespace ArcherLegend.Bootstrap
         {
             // ArcherLegend.Application 名前空間と衝突するため、UnityEngine を明示する
             progress ??= new PlayerProgressService(new JsonFileSaveDataRepository(UnityEngine.Application.persistentDataPath));
-            sync ??= new OnlineSyncService(progress, new UnityWebRequestGameApiClient(GameServerSettings.LoadBaseUrl()));
+            if (sync == null)
+            {
+                var api = new UnityWebRequestGameApiClient(GameServerSettings.LoadBaseUrl());
+                sync = new OnlineSyncService(progress, api);
+                surveys = new SurveyService(progress, sync, api);
+            }
+
             navigator ??= new SceneNavigator();
 
             if (!isSubscribed)
@@ -71,8 +79,22 @@ namespace ArcherLegend.Bootstrap
             }
 
             var view = ViewPrefabs.Instantiate<HomeView>();
-            var presenter = new HomePresenter(view, progress, sync, navigator);
+            var presenter = new HomePresenter(view, progress, sync, surveys, navigator);
             PresenterLifetime.Bind(view.gameObject, presenter);
+
+            // アンケート画面はホーム画面の手前に重ねて表示する
+            var surveyView = ViewPrefabs.Instantiate<SurveyView>();
+            var surveyPresenter = new SurveyPresenter(surveyView, surveys);
+            PresenterLifetime.Bind(surveyView.gameObject, surveyPresenter);
+            presenter.SurveyRequested += surveyPresenter.Open;
+            surveyPresenter.Closed += answered =>
+            {
+                if (answered)
+                {
+                    _ = presenter.RefreshSurveysAsync();
+                }
+            };
+
             _ = presenter.InitializeAsync();
         }
 

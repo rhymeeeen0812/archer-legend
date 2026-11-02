@@ -41,8 +41,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<Survey>(e =>
         {
-            e.Property(s => s.Title).HasMaxLength(200);
-            e.Property(s => s.Description).HasMaxLength(2000);
+            e.Property(s => s.Title).HasMaxLength(Survey.TitleMaxLength);
+            e.Property(s => s.Description).HasMaxLength(Survey.DescriptionMaxLength);
             e.Property(s => s.Status).HasConversion<string>().HasMaxLength(20);
 
             e.HasMany(s => s.Questions).WithOne(q => q.Survey)
@@ -56,7 +56,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<Question>(e =>
         {
-            e.Property(q => q.Text).HasMaxLength(500);
+            e.Property(q => q.Text).HasMaxLength(Question.TextMaxLength);
             e.Property(q => q.Type).HasConversion<string>().HasMaxLength(20);
             e.HasIndex(q => new { q.SurveyId, q.Order }).IsUnique();
 
@@ -67,7 +67,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<Choice>(e =>
         {
-            e.Property(c => c.Text).HasMaxLength(200);
+            e.Property(c => c.Text).HasMaxLength(Choice.TextMaxLength);
             e.HasIndex(c => new { c.QuestionId, c.Order }).IsUnique();
         });
 
@@ -87,7 +87,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<Answer>(e =>
         {
-            e.Property(a => a.Text).HasMaxLength(4000);
+            e.Property(a => a.Text).HasMaxLength(Survey.AnswerTextMaxLength);
 
             e.HasOne(a => a.Question).WithMany()
                 .HasForeignKey(a => a.QuestionId)

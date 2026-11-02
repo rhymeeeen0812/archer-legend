@@ -14,7 +14,7 @@ public static class GameApi
 
     public static IEndpointRouteBuilder MapGameApi(this IEndpointRouteBuilder app)
     {
-        var api = app.MapGroup("/api");
+        var api = app.MapGroup("/api").AllowAnonymous();
 
         var players = api.MapGroup("/players").WithTags("Players");
         players.MapPost("/", RegisterPlayer);

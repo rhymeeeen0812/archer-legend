@@ -18,3 +18,18 @@ public record SubmitRunResponse(PlayerRecordsResponse Records, bool IsNewBestSco
 public record RankingEntryResponse(int Rank, string Name, int BestScore, int BestWave, bool IsMe);
 
 public record RankingResponse(IReadOnlyList<RankingEntryResponse> Entries, RankingEntryResponse? Me);
+
+// ゲーム内アンケート。Unity の JsonUtility は配列を直接読めないので、一覧はオブジェクトで包む
+public record GameSurveyListResponse(IReadOnlyList<GameSurveyResponse> Surveys);
+
+public record GameSurveyResponse(Guid Id, string Title, string? Description, IReadOnlyList<GameQuestionResponse> Questions);
+
+// Type は "SingleChoice" / "MultipleChoice" / "FreeText"
+public record GameQuestionResponse(int Id, string Text, string Type, bool IsRequired, IReadOnlyList<GameChoiceResponse> Choices);
+
+public record GameChoiceResponse(int Id, string Text);
+
+public record SubmitSurveyResponseRequest(IReadOnlyList<SubmitAnswerRequest>? Answers);
+
+// 選択式は ChoiceIds、自由記述は Text を使う。使わない方は空でよい
+public record SubmitAnswerRequest(int QuestionId, int[]? ChoiceIds, string? Text);

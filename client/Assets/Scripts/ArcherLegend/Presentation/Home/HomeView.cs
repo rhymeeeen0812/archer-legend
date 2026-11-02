@@ -11,6 +11,7 @@ namespace ArcherLegend.Presentation.Home
     {
         event Action PlayClicked;
         event Action BackToTitleClicked;
+        event Action SurveyClicked;
 
         void ShowLoading();
         void ShowRecords(int bestScore, int bestWave, int totalEnemiesDefeated, int playCount);
@@ -18,6 +19,9 @@ namespace ArcherLegend.Presentation.Home
         void ShowRankingLoading();
         void ShowRanking(Ranking ranking);
         void ShowRankingUnavailable();
+
+        /// <summary>回答できるアンケートがあるときだけ「アンケートに答える」ボタンを出します。</summary>
+        void SetSurveyAvailable(bool available);
     }
 
     /// <summary>
@@ -28,6 +32,7 @@ namespace ArcherLegend.Presentation.Home
     {
         public event Action PlayClicked;
         public event Action BackToTitleClicked;
+        public event Action SurveyClicked;
 
         private const string RankingHeader = "<b>ランキング</b>\n";
 
@@ -35,6 +40,7 @@ namespace ArcherLegend.Presentation.Home
         [SerializeField] private TextMeshProUGUI rankingText;
         [SerializeField] private Button playButton;
         [SerializeField] private Button backToTitleButton;
+        [SerializeField] private Button surveyButton;
 
         public void ShowLoading()
         {
@@ -89,6 +95,11 @@ namespace ArcherLegend.Presentation.Home
             rankingText.text = RankingHeader + "サーバーに接続できませんでした";
         }
 
+        public void SetSurveyAvailable(bool available)
+        {
+            surveyButton.gameObject.SetActive(available);
+        }
+
         private static string FormatEntry(RankingEntry entry)
         {
             var line = $"{entry.Rank}位  {entry.Name}  {entry.BestScore}";
@@ -100,6 +111,8 @@ namespace ArcherLegend.Presentation.Home
             MenuCamera.Create();
             playButton.onClick.AddListener(() => PlayClicked?.Invoke());
             backToTitleButton.onClick.AddListener(() => BackToTitleClicked?.Invoke());
+            surveyButton.onClick.AddListener(() => SurveyClicked?.Invoke());
+            SetSurveyAvailable(false);
         }
     }
 }

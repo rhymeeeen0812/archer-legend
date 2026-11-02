@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using ArcherLegend.Application;
 using ArcherLegend.Domain;
@@ -13,18 +14,25 @@ namespace ArcherLegend.Presentation.Home
         private readonly IHomeView view;
         private readonly PlayerProgressService progress;
         private readonly OnlineSyncService sync;
+        private readonly SurveyService surveys;
         private readonly ISceneNavigator navigator;
+        private IReadOnlyList<Survey> availableSurveys = Array.Empty<Survey>();
         private bool isDisposed;
 
-        public HomePresenter(IHomeView view, PlayerProgressService progress, OnlineSyncService sync, ISceneNavigator navigator)
+        public HomePresenter(IHomeView view, PlayerProgressService progress, OnlineSyncService sync, SurveyService surveys, ISceneNavigator navigator)
         {
             this.view = view;
             this.progress = progress;
             this.sync = sync;
+            this.surveys = surveys;
             this.navigator = navigator;
             view.PlayClicked += OnPlayClicked;
             view.BackToTitleClicked += OnBackToTitleClicked;
+            view.SurveyClicked += OnSurveyClicked;
         }
+
+        /// <summary>「アンケートに答える」が押されたときに、回答してもらうアンケートを通知します。</summary>
+        public event Action<Survey> SurveyRequested;
 
         public async Task InitializeAsync()
         {
@@ -54,6 +62,26 @@ namespace ArcherLegend.Presentation.Home
 
             view.ShowRecords(userData.BestScore, userData.BestWave, userData.TotalEnemiesDefeated, userData.PlayCount);
             await ShowRankingAsync();
+            await RefreshSurveysAsync();
+        }
+
+        /// <summary>回答できるアンケートがあるかを確かめ直します（アンケートに回答した後にも呼びます）。</summary>
+        public async Task RefreshSurveysAsync()
+        {
+            try
+            {
+                availableSurveys = await surveys.GetAvailableAsync();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"Failed to load surveys: {e.Message}");
+                availableSurveys = Array.Empty<Survey>();
+            }
+
+            if (!isDisposed)
+            {
+                view.SetSurveyAvailable(availableSurveys.Count > 0);
+            }
         }
 
         // 戦績はローカルのデータですぐに表示し、ランキングは通信が終わってから表示する
@@ -89,6 +117,7 @@ namespace ArcherLegend.Presentation.Home
             isDisposed = true;
             view.PlayClicked -= OnPlayClicked;
             view.BackToTitleClicked -= OnBackToTitleClicked;
+            view.SurveyClicked -= OnSurveyClicked;
         }
 
         private void OnPlayClicked()
@@ -99,6 +128,14 @@ namespace ArcherLegend.Presentation.Home
         private void OnBackToTitleClicked()
         {
             navigator.GoToTitle();
+        }
+
+        private void OnSurveyClicked()
+        {
+            if (availableSurveys.Count > 0)
+            {
+                SurveyRequested?.Invoke(availableSurveys[0]);
+            }
         }
     }
 }

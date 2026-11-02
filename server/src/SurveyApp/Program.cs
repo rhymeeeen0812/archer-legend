@@ -1,4 +1,9 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using SurveyApp.Admin;
 using SurveyApp.Api;
 using SurveyApp.Components;
 using SurveyApp.Data;
@@ -10,8 +15,29 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+// 運営ツール（Blazor Server）は操作ごとにファクトリで DbContext を作る。
+// API に注入する 1 リクエストごとの DbContext も、このファクトリの登録で使えるようになる
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
+builder.Services.AddScoped<SurveyAdminService>();
+
+// 明示的に許可したエンドポイント以外は、運営ツールへのログインを必須にする（追加したページの保護漏れを防ぐ）
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/login";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    });
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(AdminEndpoints.LoginRateLimitPolicy, context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+});
+
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // 現在時刻をテストで差し替えられるようにする
@@ -24,7 +50,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
 }
 else
 {
@@ -38,10 +64,17 @@ app.UseWhen(
     branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseRateLimiter();
 app.UseAntiforgery();
 
-app.MapStaticAssets();
+app.MapStaticAssets().AllowAnonymous();
 app.MapGameApi();
+app.MapSurveyGameApi();
+// 存在しない API のパスは、ログイン画面へのリダイレクトではなく 404 を返す
+app.MapFallback("/api/{**path}", () => Results.NotFound()).AllowAnonymous();
+app.MapAdminEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

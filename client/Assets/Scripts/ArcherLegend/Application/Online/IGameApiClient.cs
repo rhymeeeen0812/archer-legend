@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,5 +17,11 @@ namespace ArcherLegend.Application
         Task SubmitRunAsync(string playerId, PendingRun run, CancellationToken cancellationToken);
 
         Task<Ranking> GetRankingAsync(string playerId, int limit, CancellationToken cancellationToken);
+
+        /// <summary>まだ回答していない、受付中のアンケートを返します。</summary>
+        Task<IReadOnlyList<Survey>> GetSurveysAsync(string playerId, CancellationToken cancellationToken);
+
+        /// <summary>回答済み・受付終了のときは 409 の <see cref="GameApiException"/> を投げます。</summary>
+        Task SubmitSurveyResponseAsync(string playerId, string surveyId, IReadOnlyList<SurveyAnswer> answers, CancellationToken cancellationToken);
     }
 }

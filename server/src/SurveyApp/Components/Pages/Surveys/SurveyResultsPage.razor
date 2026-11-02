@@ -1,0 +1,87 @@
+@page "/surveys/{Id:guid}/results"
+@inject SurveyAdminService Service
+
+<PageTitle>集計結果</PageTitle>
+
+<p><a href="surveys">← アンケート一覧</a></p>
+
+@if (isLoading)
+{
+    <p>読み込み中…</p>
+}
+else if (results is null)
+{
+    <p class="text-danger">アンケートが見つかりません。</p>
+}
+else
+{
+    <div class="d-flex align-items-center mb-2">
+        <h1 class="h3 mb-0">@results.Title</h1>
+        <span class="badge ms-2 @SurveyLabels.StatusBadgeClass(results.Status)">@SurveyLabels.Status(results.Status)</span>
+        <a class="btn btn-outline-primary ms-auto" href="admin/surveys/@results.Id/responses.csv" download>CSV をダウンロード</a>
+    </div>
+    <p class="text-muted">締め切り：@SurveyLabels.DateTime(results.ClosesAt)　／　回答数：<strong>@results.ResponseCount</strong> 件</p>
+
+    @foreach (var question in results.Questions)
+    {
+        <div class="card mb-3">
+            <div class="card-header">
+                <strong>Q@(question.Order + 1).</strong> @question.Text
+                <small class="text-muted">（@SurveyLabels.Type(question.Type)@(question.IsRequired ? "・必須" : "")・回答 @question.AnsweredCount 件）</small>
+            </div>
+            <div class="card-body">
+                @if (question.Type == QuestionType.FreeText)
+                {
+                    @if (question.TextAnswers.Count == 0)
+                    {
+                        <p class="text-muted mb-0">まだ回答がありません。</p>
+                    }
+                    else
+                    {
+                        <ul class="list-group list-group-flush answers">
+                            @foreach (var text in question.TextAnswers)
+                            {
+                                <li class="list-group-item" style="white-space: pre-wrap">@text</li>
+                            }
+                        </ul>
+                    }
+                }
+                else
+                {
+                    @foreach (var choice in question.Choices)
+                    {
+                        var percent = question.AnsweredCount == 0 ? 0 : choice.Count * 100.0 / question.AnsweredCount;
+                        <div class="mb-2">
+                            <div class="d-flex">
+                                <span>@choice.Text</span>
+                                <span class="ms-auto">@choice.Count 件（@percent.ToString("0.#")%）</span>
+                            </div>
+                            <div class="progress" role="progressbar" aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100">
+                                <div class="progress-bar" style="width: @(percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (question.Type == QuestionType.MultipleChoice)
+                    {
+                        <small class="text-muted">複数選択のため、割合の合計は 100% を超えることがあります。</small>
+                    }
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private SurveyResults? results;
+    private bool isLoading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        results = await Service.GetResultsAsync(Id);
+        isLoading = false;
+    }
+}

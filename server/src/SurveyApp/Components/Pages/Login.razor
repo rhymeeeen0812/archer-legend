@@ -1,0 +1,27 @@
+@page "/login"
+@layout LoginLayout
+@attribute [AllowAnonymous]
+
+<PageTitle>ログイン</PageTitle>
+
+<h1 class="h4 mb-3">ArcherLegend 運営ツール</h1>
+
+@if (Failed)
+{
+    <div class="alert alert-danger">パスワードが違います。</div>
+}
+
+<form method="post" action="admin/login">
+    <AntiforgeryToken />
+    <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+    <div class="mb-3">
+        <label class="form-label" for="password">パスワード</label>
+        <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required autofocus />
+    </div>
+    <button class="btn btn-primary" type="submit">ログイン</button>
+</form>
+
+@code {
+    [SupplyParameterFromQuery] private bool Failed { get; set; }
+    [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+}

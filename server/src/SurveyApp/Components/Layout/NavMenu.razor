@@ -1,6 +1,6 @@
 ﻿<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">SurveyApp</a>
+        <a class="navbar-brand" href="">ArcherLegend 運営ツール</a>
     </div>
 </div>
 
@@ -10,22 +10,21 @@
     <nav class="nav flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> ホーム
             </NavLink>
         </div>
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
+            <NavLink class="nav-link" href="surveys">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> アンケート
             </NavLink>
         </div>
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
+            <form method="post" action="admin/logout">
+                <AntiforgeryToken />
+                <button class="nav-link btn btn-link text-start w-100" type="submit">ログアウト</button>
+            </form>
         </div>
-
     </nav>
 </div>
-

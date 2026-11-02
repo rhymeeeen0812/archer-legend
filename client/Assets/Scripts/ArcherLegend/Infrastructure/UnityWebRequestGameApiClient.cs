@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,6 +50,40 @@ namespace ArcherLegend.Infrastructure
             // JsonUtility は null のオブジェクトも空のインスタンスとして読み込むので、順位の有無で判定する
             var me = response.me != null && response.me.rank > 0 ? response.me.ToEntry() : (RankingEntry?)null;
             return new Ranking(entries, me);
+        }
+
+        public async Task<IReadOnlyList<Survey>> GetSurveysAsync(string playerId, CancellationToken cancellationToken)
+        {
+            var json = await SendAsync("GET", $"/api/players/{Uri.EscapeDataString(playerId)}/surveys", null, cancellationToken);
+            var response = JsonUtility.FromJson<SurveyListResponse>(json);
+
+            var surveys = new List<Survey>();
+            foreach (var survey in response.surveys ?? Array.Empty<SurveyResponse>())
+            {
+                // このバージョンのゲームが知らない形式の質問を含むアンケートは表示しない
+                if (survey.TryToSurvey(out var converted))
+                {
+                    surveys.Add(converted);
+                }
+            }
+
+            return surveys;
+        }
+
+        public Task SubmitSurveyResponseAsync(string playerId, string surveyId, IReadOnlyList<SurveyAnswer> answers, CancellationToken cancellationToken)
+        {
+            var body = new SubmitSurveyRequest
+            {
+                answers = answers.Select(answer => new SubmitAnswerRequest
+                {
+                    questionId = answer.QuestionId,
+                    choiceIds = answer.ChoiceIds.ToArray(),
+                    text = answer.Text
+                }).ToArray()
+            };
+
+            var path = $"/api/players/{Uri.EscapeDataString(playerId)}/surveys/{Uri.EscapeDataString(surveyId)}/responses";
+            return SendAsync("POST", path, JsonUtility.ToJson(body), cancellationToken);
         }
 
         private async Task<string> SendAsync(string method, string path, string jsonBody, CancellationToken cancellationToken)
@@ -108,6 +144,73 @@ namespace ArcherLegend.Infrastructure
             public bool isMe;
 
             public RankingEntry ToEntry() => new RankingEntry(rank, name, bestScore, bestWave, isMe);
+        }
+
+        [Serializable]
+        private sealed class SurveyListResponse
+        {
+            public SurveyResponse[] surveys;
+        }
+
+        [Serializable]
+        private sealed class SurveyResponse
+        {
+            public string id;
+            public string title;
+            public string description;
+            public QuestionResponse[] questions;
+
+            public bool TryToSurvey(out Survey survey)
+            {
+                survey = null;
+                var converted = new List<SurveyQuestion>();
+                foreach (var question in questions ?? Array.Empty<QuestionResponse>())
+                {
+                    if (!Enum.TryParse(question.type, out SurveyQuestionType type))
+                    {
+                        return false;
+                    }
+
+                    var choices = (question.choices ?? Array.Empty<ChoiceResponse>())
+                        .Select(choice => new SurveyChoice(choice.id, choice.text))
+                        .ToArray();
+                    converted.Add(new SurveyQuestion(question.id, question.text, type, question.isRequired, choices));
+                }
+
+                survey = new Survey(id, title, description, converted);
+                return converted.Count > 0;
+            }
+        }
+
+        [Serializable]
+        private sealed class QuestionResponse
+        {
+            public int id;
+            public string text;
+            public string type;
+            public bool isRequired;
+            public ChoiceResponse[] choices;
+        }
+
+        [Serializable]
+        private sealed class ChoiceResponse
+        {
+            public int id;
+            public string text;
+        }
+
+        [Serializable]
+        private sealed class SubmitSurveyRequest
+        {
+            public SubmitAnswerRequest[] answers;
+        }
+
+        [Serializable]
+        private sealed class SubmitAnswerRequest
+        {
+            public int questionId;
+            public int[] choiceIds;
+            public string text;
         }
     }
 }

@@ -14,6 +14,8 @@ public sealed class GameApiFactory : WebApplicationFactory<Program>, IAsyncLifet
     private readonly PostgreSqlContainer database = new PostgreSqlBuilder("postgres:17")
         .Build();
 
+    public const string AdminPassword = "test-admin-password";
+
     public ManualTimeProvider Time { get; } = new(new DateTimeOffset(2026, 10, 29, 12, 0, 0, TimeSpan.Zero));
 
     public async Task InitializeAsync()
@@ -30,17 +32,18 @@ public sealed class GameApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         await database.DisposeAsync();
     }
 
-    /// <summary>テストごとにプレイヤーと戦績を空にします（ランキングが他のテストの影響を受けないように）。</summary>
+    /// <summary>テストごとにプレイヤー・戦績・アンケートを空にします（ランキングなどが他のテストの影響を受けないように）。</summary>
     public async Task ResetAsync()
     {
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        await db.Database.ExecuteSqlRawAsync("TRUNCATE \"Players\" CASCADE");
+        await db.Database.ExecuteSqlRawAsync("TRUNCATE \"Players\", \"Surveys\" CASCADE");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:DefaultConnection", database.GetConnectionString());
+        builder.UseSetting("Admin:Password", AdminPassword);
         builder.ConfigureServices(services => services.Replace(ServiceDescriptor.Singleton<TimeProvider>(Time)));
     }
 }

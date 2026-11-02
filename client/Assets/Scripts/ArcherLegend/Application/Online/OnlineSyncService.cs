@@ -41,7 +41,8 @@ namespace ArcherLegend.Application
             return await api.GetRankingAsync(profile.Id, limit, CancellationToken.None);
         }
 
-        private async Task SyncCoreAsync()
+        /// <summary>未登録ならプレイヤーを登録します。プレイ結果は送りません。</summary>
+        public async Task<PlayerProfile> EnsureRegisteredAsync()
         {
             var profile = await progress.LoadProfileAsync();
             if (!profile.IsRegistered)
@@ -49,6 +50,13 @@ namespace ArcherLegend.Application
                 await api.RegisterPlayerAsync(profile.Id, profile.Name, CancellationToken.None);
                 await progress.SetRegisteredAsync(true);
             }
+
+            return profile;
+        }
+
+        private async Task SyncCoreAsync()
+        {
+            var profile = await EnsureRegisteredAsync();
 
             foreach (var run in await progress.GetPendingRunsAsync())
             {

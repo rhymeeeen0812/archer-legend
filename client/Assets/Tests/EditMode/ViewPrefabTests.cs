@@ -5,6 +5,7 @@ using ArcherLegend.Presentation;
 using ArcherLegend.Presentation.Game;
 using ArcherLegend.Presentation.Home;
 using ArcherLegend.Presentation.Result;
+using ArcherLegend.Presentation.Surveys;
 using ArcherLegend.Presentation.Title;
 using NUnit.Framework;
 using UnityEngine;
@@ -22,7 +23,8 @@ namespace ArcherLegend.Tests
             typeof(TitleView),
             typeof(HomeView),
             typeof(GameHudView),
-            typeof(ResultView)
+            typeof(ResultView),
+            typeof(SurveyView)
         };
 
         [TestCaseSource(nameof(ViewTypes))]

@@ -1,0 +1,304 @@
+@page "/surveys/new"
+@page "/surveys/{Id:guid}"
+@rendermode InteractiveServer
+@inject SurveyAdminService Service
+@inject NavigationManager Navigation
+
+<PageTitle>@(Id is null ? "アンケートの作成" : "アンケートの編集")</PageTitle>
+
+<p><a href="surveys">← アンケート一覧</a></p>
+
+@if (isLoading)
+{
+    <p>読み込み中…</p>
+}
+else if (notFound)
+{
+    <p class="text-danger">アンケートが見つかりません。</p>
+}
+else if (published is not null)
+{
+    @* 公開後は回答の集計が崩れないよう、内容は変更できない *@
+    <div class="d-flex align-items-center mb-2">
+        <h1 class="h3 mb-0">@published.Title</h1>
+        <span class="badge ms-2 @SurveyLabels.StatusBadgeClass(published.Status)">@SurveyLabels.Status(published.Status)</span>
+    </div>
+    @if (!string.IsNullOrEmpty(published.Description))
+    {
+        <p class="text-muted" style="white-space: pre-wrap">@published.Description</p>
+    }
+    <p>締め切り：@SurveyLabels.DateTime(published.ClosesAt)</p>
+
+    <ol>
+        @foreach (var question in published.Questions.OrderBy(q => q.Order))
+        {
+            <li class="mb-2">
+                @question.Text
+                <small class="text-muted">（@SurveyLabels.Type(question.Type)@(question.IsRequired ? "・必須" : "")）</small>
+                @if (question.HasChoices)
+                {
+                    <ul>
+                        @foreach (var choice in question.Choices.OrderBy(c => c.Order))
+                        {
+                            <li>@choice.Text</li>
+                        }
+                    </ul>
+                }
+            </li>
+        }
+    </ol>
+
+    <div class="d-flex gap-2">
+        <a class="btn btn-primary" href="surveys/@published.Id/results">結果を見る</a>
+        @if (published.Status == SurveyStatus.Published)
+        {
+            @if (confirmingClose)
+            {
+                <span class="align-self-center">受付を終了すると、ゲームから回答できなくなります。</span>
+                <button class="btn btn-danger" @onclick="CloseAsync">終了する</button>
+                <button class="btn btn-outline-secondary" @onclick="() => confirmingClose = false">キャンセル</button>
+            }
+            else
+            {
+                <button class="btn btn-outline-danger" @onclick="() => confirmingClose = true">受付を終了する</button>
+            }
+        }
+    </div>
+}
+else
+{
+    <h1 class="h3 mb-3">@(Id is null ? "アンケートの作成" : "アンケートの編集（下書き）")</h1>
+
+    <div class="mb-3">
+        <label class="form-label">タイトル</label>
+        <input class="form-control" @bind="form.Title" maxlength="@Survey.TitleMaxLength" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">説明（任意）</label>
+        <textarea class="form-control" rows="2" @bind="form.Description" maxlength="@Survey.DescriptionMaxLength"></textarea>
+    </div>
+    <div class="mb-4">
+        <label class="form-label">締め切り（日本時間・空欄なら期限なし）</label>
+        <input class="form-control w-auto" type="datetime-local" @bind="form.ClosesAtLocal" />
+    </div>
+
+    @for (var i = 0; i < form.Questions.Count; i++)
+    {
+        var index = i;
+        var question = form.Questions[index];
+        <div class="card mb-3">
+            <div class="card-header d-flex align-items-center">
+                <strong>Q@(index + 1)</strong>
+                <div class="ms-auto btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" disabled="@(index == 0)" @onclick="() => Move(index, -1)">↑</button>
+                    <button class="btn btn-outline-secondary" disabled="@(index == form.Questions.Count - 1)" @onclick="() => Move(index, 1)">↓</button>
+                    <button class="btn btn-outline-danger" @onclick="() => form.Questions.RemoveAt(index)">削除</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <input class="form-control" placeholder="質問文" @bind="question.Text" maxlength="@SurveyAdminService.QuestionTextMaxLength" />
+                </div>
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <select class="form-select w-auto" @bind="question.Type">
+                        @foreach (var type in Enum.GetValues<QuestionType>())
+                        {
+                            <option value="@type">@SurveyLabels.Type(type)</option>
+                        }
+                    </select>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="required-@index" @bind="question.IsRequired" />
+                        <label class="form-check-label" for="required-@index">必須</label>
+                    </div>
+                </div>
+
+                @if (question.HasChoices)
+                {
+                    @for (var j = 0; j < question.Choices.Count; j++)
+                    {
+                        var choiceIndex = j;
+                        var choice = question.Choices[choiceIndex];
+                        <div class="input-group input-group-sm mb-1">
+                            <span class="input-group-text">@(choiceIndex + 1)</span>
+                            <input class="form-control" placeholder="選択肢" @bind="choice.Text" maxlength="@SurveyAdminService.ChoiceTextMaxLength" />
+                            <button class="btn btn-outline-danger" @onclick="() => question.Choices.RemoveAt(choiceIndex)">×</button>
+                        </div>
+                    }
+                    <button class="btn btn-sm btn-link" @onclick="() => question.Choices.Add(new ChoiceForm())">＋ 選択肢を追加</button>
+                }
+            </div>
+        </div>
+    }
+
+    <button class="btn btn-outline-primary mb-4" @onclick="() => form.Questions.Add(new QuestionForm())">＋ 質問を追加</button>
+
+    @if (errors.Count > 0)
+    {
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                @foreach (var error in errors)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (message is not null)
+    {
+        <div class="alert alert-success">@message</div>
+    }
+
+    <div class="d-flex gap-2 align-items-center">
+        <button class="btn btn-secondary" disabled="@isBusy" @onclick="SaveAsync">下書き保存</button>
+        @if (confirmingPublish)
+        {
+            <span>公開すると内容は変更できなくなり、ゲームに表示されます。</span>
+            <button class="btn btn-success" disabled="@isBusy" @onclick="PublishAsync">公開する</button>
+            <button class="btn btn-outline-secondary" @onclick="() => confirmingPublish = false">キャンセル</button>
+        }
+        else
+        {
+            <button class="btn btn-success" disabled="@isBusy" @onclick="() => confirmingPublish = true">公開…</button>
+        }
+
+        @if (Id is not null)
+        {
+            <div class="ms-auto d-flex gap-2 align-items-center">
+                @if (confirmingDelete)
+                {
+                    <span>この下書きを削除しますか？</span>
+                    <button class="btn btn-danger" disabled="@isBusy" @onclick="DeleteAsync">削除する</button>
+                    <button class="btn btn-outline-secondary" @onclick="() => confirmingDelete = false">キャンセル</button>
+                }
+                else
+                {
+                    <button class="btn btn-outline-danger" disabled="@isBusy" @onclick="() => confirmingDelete = true">削除…</button>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private SurveyForm form = new();
+    private Survey? published;
+    private List<string> errors = [];
+    private string? message;
+    private bool isLoading = true;
+    private bool notFound;
+    private bool isBusy;
+    private bool confirmingPublish;
+    private bool confirmingClose;
+    private bool confirmingDelete;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        published = null;
+        notFound = false;
+        form = new SurveyForm { Questions = [new QuestionForm()] };
+
+        if (Id is { } id)
+        {
+            var survey = await Service.GetAsync(id);
+            if (survey is null)
+            {
+                notFound = true;
+            }
+            else if (survey.Status == SurveyStatus.Draft)
+            {
+                form = SurveyAdminService.ToForm(survey);
+            }
+            else
+            {
+                published = survey;
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private void Move(int index, int offset)
+    {
+        var question = form.Questions[index];
+        form.Questions.RemoveAt(index);
+        form.Questions.Insert(index + offset, question);
+    }
+
+    private async Task<Guid?> SaveDraftAsync()
+    {
+        message = null;
+        var (id, saveErrors) = await Service.SaveDraftAsync(Id, form);
+        errors = saveErrors;
+        return id;
+    }
+
+    private async Task SaveAsync()
+    {
+        isBusy = true;
+        var id = await SaveDraftAsync();
+        isBusy = false;
+        if (id is null)
+        {
+            return;
+        }
+
+        if (Id is null)
+        {
+            // 新規作成後は編集画面の URL に移る（再読み込みしても同じ下書きを開けるように）
+            Navigation.NavigateTo($"surveys/{id}");
+            return;
+        }
+
+        message = "保存しました。";
+    }
+
+    private async Task PublishAsync()
+    {
+        isBusy = true;
+        confirmingPublish = false;
+        var id = await SaveDraftAsync();
+        if (id is { } savedId)
+        {
+            var error = await Service.PublishAsync(savedId);
+            if (error is null)
+            {
+                if (Id is null)
+                {
+                    Navigation.NavigateTo($"surveys/{savedId}");
+                }
+                else
+                {
+                    published = await Service.GetAsync(savedId);
+                }
+
+                isBusy = false;
+                return;
+            }
+
+            errors = [error];
+
+            // 下書きはもう保存済みなので、修正して再度保存するときに同じ下書きを更新する
+            Id = savedId;
+        }
+
+        isBusy = false;
+    }
+
+    private async Task CloseAsync()
+    {
+        confirmingClose = false;
+        await Service.CloseAsync(published!.Id);
+        published = await Service.GetAsync(published.Id);
+    }
+
+    private async Task DeleteAsync()
+    {
+        isBusy = true;
+        await Service.DeleteDraftAsync(Id!.Value);
+        Navigation.NavigateTo("surveys");
+    }
+}

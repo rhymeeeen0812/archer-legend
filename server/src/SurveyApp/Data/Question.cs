@@ -9,6 +9,8 @@ public enum QuestionType
 
 public class Question
 {
+    public const int TextMaxLength = 500;
+
     public int Id { get; set; }
 
     public Guid SurveyId { get; set; }
@@ -28,6 +30,8 @@ public class Question
 
 public class Choice
 {
+    public const int TextMaxLength = 200;
+
     public int Id { get; set; }
 
     public int QuestionId { get; set; }

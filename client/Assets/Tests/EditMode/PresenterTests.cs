@@ -90,6 +90,38 @@ namespace ArcherLegend.Tests
         }
 
         [Test]
+        public async Task InitializeAsync_回答できるアンケートがあればボタンを出し押すと通知する()
+        {
+            var api = new FakeGameApiClient();
+            api.Surveys.Add(TestSurveys.Create());
+            var view = new FakeHomeView();
+            var presenter = CreateHomePresenter(view, new InMemorySaveDataRepository(), api, new FakeSceneNavigator());
+            Survey requested = null;
+            presenter.SurveyRequested += survey => requested = survey;
+
+            await presenter.InitializeAsync();
+            view.ClickSurvey();
+
+            Assert.That(view.IsSurveyAvailable, Is.True);
+            Assert.That(requested, Is.SameAs(api.Surveys[0]));
+        }
+
+        [Test]
+        public async Task RefreshSurveysAsync_回答後にアンケートがなくなればボタンを隠す()
+        {
+            var api = new FakeGameApiClient();
+            api.Surveys.Add(TestSurveys.Create());
+            var view = new FakeHomeView();
+            var presenter = CreateHomePresenter(view, new InMemorySaveDataRepository(), api, new FakeSceneNavigator());
+            await presenter.InitializeAsync();
+
+            api.Surveys.Clear();
+            await presenter.RefreshSurveysAsync();
+
+            Assert.That(view.IsSurveyAvailable, Is.False);
+        }
+
+        [Test]
         public void ボタン操作で各画面へ遷移する()
         {
             var view = new FakeHomeView();
@@ -285,7 +317,8 @@ namespace ArcherLegend.Tests
         public static HomePresenter CreateHomePresenter(FakeHomeView view, InMemorySaveDataRepository repository, FakeGameApiClient api, FakeSceneNavigator navigator)
         {
             var progress = new PlayerProgressService(repository);
-            return new HomePresenter(view, progress, new OnlineSyncService(progress, api), navigator);
+            var sync = new OnlineSyncService(progress, api);
+            return new HomePresenter(view, progress, sync, new SurveyService(progress, sync, api), navigator);
         }
 
         public static ResultPresenter CreateResultPresenter(FakeResultView view, InMemorySaveDataRepository repository, FakeGameApiClient api, FakeSceneNavigator navigator, Action retry)
