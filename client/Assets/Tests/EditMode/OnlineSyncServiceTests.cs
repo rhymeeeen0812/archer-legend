@@ -87,6 +87,84 @@ namespace ArcherLegend.Tests
         }
 
         [Test]
+        public async Task SyncAsync_同期中に増えた結果も続けて送る()
+        {
+            var (progress, _) = await CreateProgressAsync(runCount: 1);
+            var api = new FakeGameApiClient { PendingSubmit = new TaskCompletionSource<bool>() };
+            var sync = new OnlineSyncService(progress, api);
+
+            var running = sync.SyncAsync();
+            await progress.RecordRunAsync(new RunResult(score: 50, wave: 1, enemiesDefeated: 1, level: 1));
+            api.PendingSubmit.SetResult(true);
+            await running;
+
+            Assert.That(api.SubmittedRunIds, Has.Count.EqualTo(2));
+            Assert.That(await progress.GetPendingRunsAsync(), Is.Empty);
+        }
+
+        [Test]
+        public async Task SyncAsync_受け付けられない結果は送信待ちから外して次の結果を送る()
+        {
+            var (progress, _) = await CreateProgressAsync(runCount: 2);
+            var pending = await progress.GetPendingRunsAsync();
+            var api = new FakeGameApiClient
+            {
+                SubmitFailure = run => run.runId == pending[0].runId ? new GameApiException(400, "bad request") : null
+            };
+
+            await new OnlineSyncService(progress, api).SyncAsync();
+
+            Assert.That(api.SubmittedRunIds, Is.EqualTo(new[] { pending[1].runId }));
+            Assert.That(await progress.GetPendingRunsAsync(), Is.Empty);
+        }
+
+        [Test]
+        public async Task SyncAsync_競合した結果は送信待ちに残して次の結果を送る()
+        {
+            var (progress, _) = await CreateProgressAsync(runCount: 2);
+            var pending = await progress.GetPendingRunsAsync();
+            var api = new FakeGameApiClient
+            {
+                SubmitFailure = run => run.runId == pending[0].runId ? new GameApiException(409, "conflict") : null
+            };
+
+            await new OnlineSyncService(progress, api).SyncAsync();
+
+            Assert.That(api.SubmittedRunIds, Is.EqualTo(new[] { pending[1].runId }));
+            var remaining = await progress.GetPendingRunsAsync();
+            Assert.That(remaining[0].runId, Is.EqualTo(pending[0].runId));
+            Assert.That(remaining.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public async Task GetRankingAsync_サーバーに届いていれば結果を送れなくても取得する()
+        {
+            var (progress, _) = await CreateProgressAsync(runCount: 1);
+            var api = new FakeGameApiClient
+            {
+                SubmitFailure = _ => new GameApiException(404, "not found"),
+                Ranking = new Ranking(Array.Empty<RankingEntry>(), new RankingEntry(3, "自分", 100, 2, true))
+            };
+
+            var ranking = await new OnlineSyncService(progress, api).GetRankingAsync(5);
+
+            Assert.That(ranking.Me?.Rank, Is.EqualTo(3));
+        }
+
+        [Test]
+        public async Task GetRankingAsync_オフラインならランキングの取得を試さず失敗する()
+        {
+            var (progress, _) = await CreateProgressAsync(runCount: 1);
+            var api = new FakeGameApiClient
+            {
+                SubmitFailure = _ => new GameApiException(0, "offline"),
+                RankingException = new InvalidOperationException("should not be called")
+            };
+
+            Assert.That(async () => await new OnlineSyncService(progress, api).GetRankingAsync(5), Throws.TypeOf<GameApiException>());
+        }
+
+        [Test]
         public async Task GetRankingAsync_送信待ちを送ってからランキングを取得する()
         {
             var (progress, _) = await CreateProgressAsync(runCount: 1);

@@ -46,19 +46,22 @@ namespace ArcherLegend.Domain
             InvincibleTimeRemaining = Mathf.Max(0f, InvincibleTimeRemaining - Mathf.Max(0f, deltaTime));
         }
 
-        public bool AddExperience(int amount)
+        /// <summary>経験値を加え、上がったレベルの数を返します。1 回で複数のレベルが上がることもあります。</summary>
+        public int AddExperience(int amount)
         {
             ThrowIfDisposed();
             Experience += Mathf.Max(0, amount);
-            if (Experience < ExperienceToNext)
+
+            var levelsGained = 0;
+            while (Experience >= ExperienceToNext)
             {
-                return false;
+                Experience -= ExperienceToNext;
+                Level++;
+                ExperienceToNext = Mathf.RoundToInt(ExperienceToNext * 1.45f + 3f);
+                levelsGained++;
             }
 
-            Experience -= ExperienceToNext;
-            Level++;
-            ExperienceToNext = Mathf.RoundToInt(ExperienceToNext * 1.45f + 3f);
-            return true;
+            return levelsGained;
         }
 
         public void ApplyUpgrade(UpgradeType upgradeType)

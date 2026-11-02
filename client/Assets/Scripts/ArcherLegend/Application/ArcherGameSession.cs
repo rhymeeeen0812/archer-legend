@@ -11,13 +11,14 @@ namespace ArcherLegend.Application
     {
         private readonly List<Enemy> activeEnemies = new List<Enemy>();
         private readonly System.Random random = new System.Random();
+        private int pendingUpgrades;
         private bool isDisposed;
 
         public Player Player { get; } = new Player();
         public int Wave { get; private set; } = 1;
         public int Score { get; private set; }
         public int EnemiesDefeated { get; private set; }
-        public bool IsUpgradePending { get; private set; }
+        public bool IsUpgradePending => pendingUpgrades > 0;
         public bool IsGameOver => !Player.IsAlive;
 
         public UpgradeOption[] CurrentUpgradeOptions { get; private set; } = Array.Empty<UpgradeOption>();
@@ -36,9 +37,11 @@ namespace ArcherLegend.Application
             Score += 10 * Wave;
             EnemiesDefeated++;
 
-            if (Player.AddExperience(enemy.ExperienceReward))
+            // 選択中にレベルが上がっても、表示中の選択肢は変えずに残りの回数を増やす
+            var wasPending = IsUpgradePending;
+            pendingUpgrades += Player.AddExperience(enemy.ExperienceReward);
+            if (!wasPending && IsUpgradePending)
             {
-                IsUpgradePending = true;
                 CurrentUpgradeOptions = RollUpgradeOptions();
             }
 
@@ -60,8 +63,8 @@ namespace ArcherLegend.Application
                 item.ApplyTo(Player);
             }
 
-            IsUpgradePending = false;
-            CurrentUpgradeOptions = Array.Empty<UpgradeOption>();
+            pendingUpgrades--;
+            CurrentUpgradeOptions = IsUpgradePending ? RollUpgradeOptions() : Array.Empty<UpgradeOption>();
         }
 
         public RunResult CreateRunResult()
@@ -78,7 +81,7 @@ namespace ArcherLegend.Application
             Wave = 1;
             Score = 0;
             EnemiesDefeated = 0;
-            IsUpgradePending = false;
+            pendingUpgrades = 0;
             CurrentUpgradeOptions = Array.Empty<UpgradeOption>();
             Player.ResetForNewRun();
         }

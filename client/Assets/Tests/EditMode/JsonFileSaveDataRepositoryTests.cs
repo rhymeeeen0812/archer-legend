@@ -74,5 +74,31 @@ namespace ArcherLegend.Tests
             Assert.That(File.Exists(Path.Combine(directory, "save.json.broken")), Is.True);
             Assert.That(File.Exists(Path.Combine(directory, "save.json")), Is.False);
         }
+
+        [Test]
+        public async Task LoadAsync_空のファイルは退避して一時ファイルがあれば復旧する()
+        {
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, "save.json"), string.Empty);
+            File.WriteAllText(Path.Combine(directory, "save.json.tmp"), JsonUtility.ToJson(new SaveData { bestScore = 42 }));
+            LogAssert.Expect(LogType.Warning, new Regex("Save data is broken"));
+
+            var loaded = await repository.LoadAsync(CancellationToken.None);
+
+            Assert.That(loaded.bestScore, Is.EqualTo(42));
+            Assert.That(File.Exists(Path.Combine(directory, "save.json.broken")), Is.True);
+        }
+
+        [Test]
+        public async Task SaveAsync_既存のファイルを上書きして一時ファイルを残さない()
+        {
+            await repository.SaveAsync(new SaveData { bestScore = 1 }, CancellationToken.None);
+
+            await repository.SaveAsync(new SaveData { bestScore = 2 }, CancellationToken.None);
+
+            var loaded = await repository.LoadAsync(CancellationToken.None);
+            Assert.That(loaded.bestScore, Is.EqualTo(2));
+            Assert.That(File.Exists(Path.Combine(directory, "save.json.tmp")), Is.False);
+        }
     }
 }

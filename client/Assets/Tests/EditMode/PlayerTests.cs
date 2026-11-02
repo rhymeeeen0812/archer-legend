@@ -48,6 +48,30 @@ namespace ArcherLegend.Tests
         }
 
         [Test]
+        public void AddExperience_必要な経験値を超えた分だけレベルが上がり余りを残す()
+        {
+            using (var player = new Player())
+            {
+                var levels = player.AddExperience(6 + 12 + 1);
+
+                Assert.That(levels, Is.EqualTo(2));
+                Assert.That(player.Level, Is.EqualTo(3));
+                Assert.That(player.Experience, Is.EqualTo(1));
+                Assert.That(player.Experience, Is.LessThan(player.ExperienceToNext));
+            }
+        }
+
+        [Test]
+        public void AddExperience_必要な経験値に届かなければレベルは上がらない()
+        {
+            using (var player = new Player())
+            {
+                Assert.That(player.AddExperience(5), Is.Zero);
+                Assert.That(player.Level, Is.EqualTo(1));
+            }
+        }
+
+        [Test]
         public void ResetForNewRun_無敵時間を解除する()
         {
             using (var player = new Player())

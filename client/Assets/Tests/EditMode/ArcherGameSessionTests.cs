@@ -24,6 +24,46 @@ namespace ArcherLegend.Tests
         }
 
         [Test]
+        public void ApplyUpgrade_選択中にレベルが上がった分も続けて選べる()
+        {
+            using (var session = new ArcherGameSession())
+            {
+                while (session.Player.Level < 3)
+                {
+                    session.RegisterEnemyDefeated(session.CreateEnemy());
+                }
+
+                session.ApplyUpgrade(session.CurrentUpgradeOptions[0].Type);
+                Assert.That(session.IsUpgradePending, Is.True);
+                Assert.That(session.CurrentUpgradeOptions, Is.Not.Empty);
+
+                session.ApplyUpgrade(session.CurrentUpgradeOptions[0].Type);
+                Assert.That(session.IsUpgradePending, Is.False);
+                Assert.That(session.CurrentUpgradeOptions, Is.Empty);
+            }
+        }
+
+        [Test]
+        public void RegisterEnemyDefeated_選択中にレベルが上がっても表示中の選択肢を変えない()
+        {
+            using (var session = new ArcherGameSession())
+            {
+                while (!session.IsUpgradePending)
+                {
+                    session.RegisterEnemyDefeated(session.CreateEnemy());
+                }
+
+                var shown = session.CurrentUpgradeOptions;
+                while (session.Player.Level < 3)
+                {
+                    session.RegisterEnemyDefeated(session.CreateEnemy());
+                }
+
+                Assert.That(session.CurrentUpgradeOptions, Is.SameAs(shown));
+            }
+        }
+
+        [Test]
         public void Restart_ラン単位の値をリセットする()
         {
             using (var session = new ArcherGameSession())

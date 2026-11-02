@@ -13,6 +13,7 @@ namespace ArcherLegend.Presentation.Game
     {
         private const float ArenaHalfWidth = 9f;
         private const float ArenaHalfDepth = 6f;
+        private const float SafeSpawnDistance = 3f;
 
         private readonly List<EnemyView> enemies = new List<EnemyView>();
         private ArcherGameSession session;
@@ -26,7 +27,6 @@ namespace ArcherLegend.Presentation.Game
         private GameHudPresenter hudPresenter;
         private ResultPresenter resultPresenter;
         private float fireTimer;
-        private int enemiesToSpawn;
         private bool isRunFinished;
 
         public void Construct(ArcherGameSession gameSession, UnityObjectFactory objectFactory, PlayerProgressService playerProgress, OnlineSyncService onlineSync, ISceneNavigator sceneNavigator)
@@ -98,7 +98,7 @@ namespace ArcherLegend.Presentation.Game
             UpdateCombat(move);
             CullMissingEnemies();
 
-            if (enemies.Count == 0 && enemiesToSpawn <= 0)
+            if (enemies.Count == 0)
             {
                 session.RegisterWaveCleared();
                 BeginWave();
@@ -159,7 +159,7 @@ namespace ArcherLegend.Presentation.Game
 
             player.transform.forward = direction.normalized;
             var arrow = factory.CreateArrow().AddComponent<ArrowView>();
-            arrow.Launch(player.transform.position + Vector3.up * 0.25f + direction.normalized * 0.55f, direction, session.Player.ArrowDamage, 12f, OnEnemyDefeated);
+            arrow.Launch(player.transform.position + Vector3.up * 0.25f + direction.normalized * 0.55f, direction, session.Player.ArrowDamage, 12f, enemies, OnEnemyDefeated);
             fireTimer = session.Player.FireCooldown;
         }
 
@@ -189,21 +189,29 @@ namespace ArcherLegend.Presentation.Game
 
         private void BeginWave()
         {
-            enemiesToSpawn = 3 + session.Wave;
-            for (var i = 0; i < enemiesToSpawn; i++)
+            var count = 3 + session.Wave;
+            for (var i = 0; i < count; i++)
             {
-                SpawnEnemy(i);
+                SpawnEnemy(i, count);
             }
-
-            enemiesToSpawn = 0;
         }
 
-        private void SpawnEnemy(int index)
+        /// <summary>プレイヤーの近くに出現する敵は、避ける間もなく当たらないようアリーナの反対側へ移します。</summary>
+        public static Vector3 ResolveSpawnPosition(Vector3 candidate, Vector3 playerPosition)
         {
-            var angle = index * Mathf.PI * 2f / Mathf.Max(1, enemiesToSpawn);
+            var offset = candidate - playerPosition;
+            offset.y = 0f;
+            return offset.sqrMagnitude < SafeSpawnDistance * SafeSpawnDistance
+                ? new Vector3(-candidate.x, candidate.y, -candidate.z)
+                : candidate;
+        }
+
+        private void SpawnEnemy(int index, int count)
+        {
+            var angle = index * Mathf.PI * 2f / count;
             var position = new Vector3(Mathf.Cos(angle) * (ArenaHalfWidth - 1.4f), 0.55f, Mathf.Sin(angle) * (ArenaHalfDepth - 1.4f));
             var enemy = factory.CreateEnemy().AddComponent<EnemyView>();
-            enemy.transform.position = position;
+            enemy.transform.position = ResolveSpawnPosition(position, player.transform.position);
             enemy.Construct(session.CreateEnemy(), player.transform);
             enemies.Add(enemy);
         }

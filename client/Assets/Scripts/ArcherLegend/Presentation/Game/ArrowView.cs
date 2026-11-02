@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ArcherLegend.Presentation.Game
@@ -13,28 +14,46 @@ namespace ArcherLegend.Presentation.Game
         private float speed;
         private float life;
         private Vector3 direction;
+        private IReadOnlyList<EnemyView> enemies;
         private System.Action<EnemyView> onEnemyHit;
 
-        public void Launch(Vector3 start, Vector3 aimDirection, int arrowDamage, float arrowSpeed, System.Action<EnemyView> enemyHit)
+        /// <param name="targets">生きている敵の一覧。倒された敵はすぐに外されるので、同じフレームで二重に命中しません。</param>
+        public void Launch(Vector3 start, Vector3 aimDirection, int arrowDamage, float arrowSpeed, IReadOnlyList<EnemyView> targets, System.Action<EnemyView> enemyHit)
         {
             transform.position = start;
             direction = aimDirection.normalized;
             damage = arrowDamage;
             speed = arrowSpeed;
             life = 2.2f;
+            enemies = targets;
             onEnemyHit = enemyHit;
             transform.rotation = Quaternion.LookRotation(direction) * Quaternion.Euler(90f, 0f, 0f);
         }
 
+        /// <summary>
+        /// 1 フレームで進む線分が、敵の円に触れたかを地面上（XZ 平面）で判定します。
+        /// 線分で調べることで、フレームレートが低くても矢が敵をすり抜けません。
+        /// </summary>
+        public static bool IsHit(Vector3 from, Vector3 to, Vector3 center, float radius)
+        {
+            var start = new Vector2(from.x, from.z);
+            var segment = new Vector2(to.x, to.z) - start;
+            var toCenter = new Vector2(center.x, center.z) - start;
+            var lengthSquared = segment.sqrMagnitude;
+            var t = lengthSquared > 0f ? Mathf.Clamp01(Vector2.Dot(toCenter, segment) / lengthSquared) : 0f;
+            return (toCenter - segment * t).sqrMagnitude <= radius * radius;
+        }
+
         private void Update()
         {
+            var previous = transform.position;
             transform.position += direction * speed * Time.deltaTime;
             life -= Time.deltaTime;
 
-            var enemies = FindObjectsByType<EnemyView>(FindObjectsSortMode.None);
-            foreach (var enemy in enemies)
+            for (var i = 0; i < enemies.Count; i++)
             {
-                if (enemy == null || Vector3.Distance(transform.position, enemy.transform.position) > Radius)
+                var enemy = enemies[i];
+                if (enemy == null || !IsHit(previous, transform.position, enemy.transform.position, Radius))
                 {
                     continue;
                 }

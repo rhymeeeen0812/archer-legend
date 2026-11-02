@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ArcherLegend.Application;
@@ -26,25 +27,43 @@ namespace ArcherLegend.Infrastructure
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // 置き換えの途中で終了した場合は、書き終えていた一時ファイルから復旧する
-            var path = File.Exists(filePath) ? filePath : tempFilePath;
+            // 本体が読めないときや、置き換えの途中で終了した場合は、書き終えていた一時ファイルから復旧する
+            var data = TryLoad(filePath) ?? TryLoad(tempFilePath);
+            return Task.FromResult(data);
+        }
+
+        private static SaveData TryLoad(string path)
+        {
             if (!File.Exists(path))
             {
-                return Task.FromResult<SaveData>(null);
+                return null;
             }
 
             try
             {
-                return Task.FromResult(JsonUtility.FromJson<SaveData>(File.ReadAllText(path)));
+                // 空のファイルは例外にならず null が返るので、壊れたファイルとして同じように扱う
+                var data = JsonUtility.FromJson<SaveData>(File.ReadAllText(path));
+                if (data != null)
+                {
+                    return data;
+                }
+
+                MoveAside(path, "the file is empty");
             }
             catch (ArgumentException e)
             {
-                // 壊れたファイルのせいで遊べなくなるのを避け、退避してから新しいデータで始める
-                Debug.LogWarning($"Save data is broken and was moved aside: {e.Message}");
-                File.Copy(path, path + ".broken", true);
-                File.Delete(path);
-                return Task.FromResult<SaveData>(null);
+                MoveAside(path, e.Message);
             }
+
+            return null;
+        }
+
+        // 壊れたファイルのせいで遊べなくなるのを避け、退避してから新しいデータで始める
+        private static void MoveAside(string path, string reason)
+        {
+            Debug.LogWarning($"Save data is broken and was moved aside: {reason}");
+            File.Copy(path, path + ".broken", true);
+            File.Delete(path);
         }
 
         public Task SaveAsync(SaveData data, CancellationToken cancellationToken)
@@ -53,13 +72,24 @@ namespace ArcherLegend.Infrastructure
             Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
             // 一時ファイルに書き切ってから置き換え、書き込み中に終了してもファイルが壊れないようにする
-            File.WriteAllText(tempFilePath, JsonUtility.ToJson(data));
-            if (File.Exists(filePath))
+            using (var stream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write))
             {
-                File.Delete(filePath);
+                var bytes = Encoding.UTF8.GetBytes(JsonUtility.ToJson(data));
+                stream.Write(bytes, 0, bytes.Length);
+
+                // 電源断でも中身が残るよう、置き換える前にディスクまで書き出す
+                stream.Flush(true);
             }
 
-            File.Move(tempFilePath, filePath);
+            if (File.Exists(filePath))
+            {
+                File.Replace(tempFilePath, filePath, null);
+            }
+            else
+            {
+                File.Move(tempFilePath, filePath);
+            }
+
             return Task.CompletedTask;
         }
     }
