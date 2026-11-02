@@ -7,6 +7,8 @@ namespace ArcherLegend.Infrastructure
     /// </summary>
     public sealed class UnityObjectFactory
     {
+        public const string BaseMaterialPath = "Materials/ArcherBaseLit";
+
         private readonly Material playerMaterial;
         private readonly Material enemyMaterial;
         private readonly Material arrowMaterial;
@@ -87,7 +89,9 @@ namespace ArcherLegend.Infrastructure
 
         private static Material CreateMaterial(string name, Color color)
         {
-            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            // Shader.Find は、どのアセットからも参照されていないシェーダーをビルドで見つけられない。
+            // Resources のマテリアルから参照しておくことで、シェーダーをビルドに含める
+            var material = new Material(Resources.Load<Material>(BaseMaterialPath));
             material.name = name;
             material.color = color;
             return material;
