@@ -1,3 +1,4 @@
+using ArcherLegend.Domain;
 using UnityEngine;
 
 namespace ArcherLegend.Infrastructure
@@ -11,6 +12,9 @@ namespace ArcherLegend.Infrastructure
 
         private readonly Material playerMaterial;
         private readonly Material enemyMaterial;
+        private readonly Material shooterMaterial;
+        private readonly Material chargerMaterial;
+        private readonly Material enemyBulletMaterial;
         private readonly Material arrowMaterial;
         private readonly Material floorMaterial;
         private readonly Material wallMaterial;
@@ -20,6 +24,9 @@ namespace ArcherLegend.Infrastructure
             // 描画素材はここに集約し、表示側がレンダリング詳細を知らなくて済むようにします。
             playerMaterial = CreateMaterial("Hero Jade", new Color(0.10f, 0.68f, 0.52f));
             enemyMaterial = CreateMaterial("Enemy Coral", new Color(0.86f, 0.23f, 0.22f));
+            shooterMaterial = CreateMaterial("Shooter Violet", new Color(0.58f, 0.36f, 0.86f));
+            chargerMaterial = CreateMaterial("Charger Amber", new Color(0.95f, 0.55f, 0.16f));
+            enemyBulletMaterial = CreateMaterial("Enemy Bullet Pink", new Color(1.00f, 0.35f, 0.75f));
             arrowMaterial = CreateMaterial("Arrow Gold", new Color(1.00f, 0.78f, 0.25f));
             floorMaterial = CreateMaterial("Arena Stone", new Color(0.22f, 0.24f, 0.27f));
             wallMaterial = CreateMaterial("Arena Wall", new Color(0.39f, 0.42f, 0.46f));
@@ -36,14 +43,39 @@ namespace ArcherLegend.Infrastructure
             return player;
         }
 
-        public GameObject CreateEnemy()
+        public GameObject CreateEnemy(EnemyType type = EnemyType.Chaser)
         {
+            // 種類は色と形で見分けられるようにする（射撃は細身の紫、突進は大柄の橙）
             var enemy = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            enemy.name = "Chaser";
-            enemy.transform.localScale = new Vector3(0.85f, 0.9f, 0.85f);
-            enemy.GetComponent<Renderer>().sharedMaterial = enemyMaterial;
+            enemy.name = type.ToString();
+            switch (type)
+            {
+                case EnemyType.Shooter:
+                    enemy.transform.localScale = new Vector3(0.7f, 0.85f, 0.7f);
+                    enemy.GetComponent<Renderer>().sharedMaterial = shooterMaterial;
+                    break;
+                case EnemyType.Charger:
+                    enemy.transform.localScale = new Vector3(1.05f, 0.95f, 1.05f);
+                    enemy.GetComponent<Renderer>().sharedMaterial = chargerMaterial;
+                    break;
+                default:
+                    enemy.transform.localScale = new Vector3(0.85f, 0.9f, 0.85f);
+                    enemy.GetComponent<Renderer>().sharedMaterial = enemyMaterial;
+                    break;
+            }
+
             AddKinematicBody(enemy);
             return enemy;
+        }
+
+        public GameObject CreateEnemyBullet()
+        {
+            var bullet = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            bullet.name = "Enemy Bullet";
+            bullet.transform.localScale = Vector3.one * 0.28f;
+            bullet.GetComponent<Renderer>().sharedMaterial = enemyBulletMaterial;
+            Object.Destroy(bullet.GetComponent<Collider>());
+            return bullet;
         }
 
         public GameObject CreateArrow()

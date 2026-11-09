@@ -81,6 +81,15 @@ namespace ArcherLegend.Tests
         }
 
         [Test]
+        public void ShooterMoveSign_遠ければ近づき近すぎれば離れちょうどよければ止まる()
+        {
+            Assert.That(EnemyView.ShooterMoveSign(8f, 5.5f, 0.6f), Is.EqualTo(1));
+            Assert.That(EnemyView.ShooterMoveSign(3f, 5.5f, 0.6f), Is.EqualTo(-1));
+            Assert.That(EnemyView.ShooterMoveSign(5.5f, 5.5f, 0.6f), Is.Zero);
+            Assert.That(EnemyView.ShooterMoveSign(6f, 5.5f, 0.6f), Is.Zero);
+        }
+
+        [Test]
         public void ResolveSpawnPosition_プレイヤーの近くなら反対側へ移す()
         {
             var candidate = new Vector3(7.6f, 0.55f, 0f);
