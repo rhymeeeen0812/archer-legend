@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using ArcherLegend.Domain;
 
 namespace ArcherLegend.Application
@@ -9,6 +10,19 @@ namespace ArcherLegend.Application
     /// </summary>
     public sealed class ArcherGameSession : IDisposable
     {
+        private const int UpgradeChoiceCount = 3;
+
+        private static readonly UpgradeOption[] AllUpgradeOptions =
+        {
+            new UpgradeOption(UpgradeType.RapidShot, "連射", "矢を放つ間隔が短くなる"),
+            new UpgradeOption(UpgradeType.PowerShot, "強弓", "矢のダメージが上がる"),
+            new UpgradeOption(UpgradeType.SwiftBoots, "疾風の靴", "移動が速くなる"),
+            new UpgradeOption(UpgradeType.Vitality, "活力", "最大HPが増え、HPが回復する"),
+            new UpgradeOption(UpgradeType.SpreadShot, "拡散矢", "矢が左右に 1 本ずつ増える"),
+            new UpgradeOption(UpgradeType.PiercingShot, "貫通矢", "矢が敵を 1 体多く貫く"),
+            new UpgradeOption(UpgradeType.BouncingShot, "跳弾", "矢が壁で 1 回多く跳ね返る")
+        };
+
         private readonly List<Enemy> activeEnemies = new List<Enemy>();
         private readonly System.Random random = new System.Random();
         private int pendingUpgrades;
@@ -100,13 +114,8 @@ namespace ArcherLegend.Application
 
         private UpgradeOption[] RollUpgradeOptions()
         {
-            var pool = new[]
-            {
-                new UpgradeOption(UpgradeType.RapidShot, "連射", "矢を放つ間隔が短くなる"),
-                new UpgradeOption(UpgradeType.PowerShot, "強弓", "矢のダメージが上がる"),
-                new UpgradeOption(UpgradeType.SwiftBoots, "疾風の靴", "移動が速くなる"),
-                new UpgradeOption(UpgradeType.Vitality, "活力", "最大HPが増え、HPが回復する")
-            };
+            // 上限に達した強化は外す。数値が上がるだけの 4 種は上限がないので、選択肢は必ず 3 つ以上残る
+            var pool = AllUpgradeOptions.Where(option => Player.CanUpgrade(option.Type)).ToArray();
 
             for (var i = pool.Length - 1; i > 0; i--)
             {
@@ -114,7 +123,7 @@ namespace ArcherLegend.Application
                 (pool[i], pool[swap]) = (pool[swap], pool[i]);
             }
 
-            return new[] { pool[0], pool[1], pool[2] };
+            return pool.Take(UpgradeChoiceCount).ToArray();
         }
 
         private void DisposeEnemies()

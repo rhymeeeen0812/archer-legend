@@ -72,6 +72,75 @@ namespace ArcherLegend.Tests
         }
 
         [Test]
+        public void ApplyUpgrade_拡散矢は2本ずつ増えて上限で止まる()
+        {
+            using (var player = new Player())
+            {
+                player.ApplyUpgrade(UpgradeType.SpreadShot);
+                Assert.That(player.ArrowCount, Is.EqualTo(3));
+
+                player.ApplyUpgrade(UpgradeType.SpreadShot);
+                player.ApplyUpgrade(UpgradeType.SpreadShot);
+                Assert.That(player.ArrowCount, Is.EqualTo(Player.MaxArrowCount));
+            }
+        }
+
+        [Test]
+        public void ApplyUpgrade_貫通矢と跳弾は1回ずつ増えて上限で止まる()
+        {
+            using (var player = new Player())
+            {
+                player.ApplyUpgrade(UpgradeType.PiercingShot);
+                player.ApplyUpgrade(UpgradeType.BouncingShot);
+                Assert.That(player.PierceCount, Is.EqualTo(1));
+                Assert.That(player.BounceCount, Is.EqualTo(1));
+
+                for (var i = 0; i < 5; i++)
+                {
+                    player.ApplyUpgrade(UpgradeType.PiercingShot);
+                    player.ApplyUpgrade(UpgradeType.BouncingShot);
+                }
+
+                Assert.That(player.PierceCount, Is.EqualTo(Player.MaxPierceCount));
+                Assert.That(player.BounceCount, Is.EqualTo(Player.MaxBounceCount));
+            }
+        }
+
+        [Test]
+        public void CanUpgrade_上限に達した攻撃パターンだけ強化できなくなる()
+        {
+            using (var player = new Player())
+            {
+                for (var i = 0; i < Player.MaxPierceCount; i++)
+                {
+                    player.ApplyUpgrade(UpgradeType.PiercingShot);
+                }
+
+                Assert.That(player.CanUpgrade(UpgradeType.PiercingShot), Is.False);
+                Assert.That(player.CanUpgrade(UpgradeType.SpreadShot), Is.True);
+                Assert.That(player.CanUpgrade(UpgradeType.BouncingShot), Is.True);
+                Assert.That(player.CanUpgrade(UpgradeType.PowerShot), Is.True);
+            }
+        }
+
+        [Test]
+        public void ResetForNewRun_攻撃パターンを初期状態に戻す()
+        {
+            using (var player = new Player())
+            {
+                player.ApplyUpgrade(UpgradeType.SpreadShot);
+                player.ApplyUpgrade(UpgradeType.PiercingShot);
+                player.ApplyUpgrade(UpgradeType.BouncingShot);
+
+                player.ResetForNewRun();
+
+                Assert.That(player.ArrowCount, Is.EqualTo(1));
+                Assert.That(player.PierceCount, Is.Zero);
+                Assert.That(player.BounceCount, Is.Zero);
+            }
+        }
+
+        [Test]
         public void ResetForNewRun_無敵時間を解除する()
         {
             using (var player = new Player())

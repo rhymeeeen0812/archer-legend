@@ -11,6 +11,15 @@ namespace ArcherLegend.Domain
         /// <summary>被弾してから次のダメージを受け付けるまでの無敵時間（秒）です。</summary>
         public const float InvincibleDuration = 1.2f;
 
+        /// <summary>一度に放つ矢の最大数です。拡散矢を 1 回取るごとに左右へ 1 本ずつ増えます。</summary>
+        public const int MaxArrowCount = 5;
+
+        /// <summary>1 本の矢が貫通できる敵の最大数です。</summary>
+        public const int MaxPierceCount = 3;
+
+        /// <summary>1 本の矢が壁で跳ね返る最大回数です。</summary>
+        public const int MaxBounceCount = 3;
+
         public Player() : base("player", 100)
         {
         }
@@ -21,6 +30,9 @@ namespace ArcherLegend.Domain
         public float MoveSpeed { get; private set; } = 5.4f;
         public float FireCooldown { get; private set; } = 0.48f;
         public int ArrowDamage { get; private set; } = 28;
+        public int ArrowCount { get; private set; } = 1;
+        public int PierceCount { get; private set; }
+        public int BounceCount { get; private set; }
         public float InvincibleTimeRemaining { get; private set; }
         public bool IsInvincible => InvincibleTimeRemaining > 0f;
 
@@ -64,6 +76,23 @@ namespace ArcherLegend.Domain
             return levelsGained;
         }
 
+        /// <summary>まだ強化できるかを返します。上限に達した強化は選択肢に出しません。</summary>
+        public bool CanUpgrade(UpgradeType upgradeType)
+        {
+            ThrowIfDisposed();
+            switch (upgradeType)
+            {
+                case UpgradeType.SpreadShot:
+                    return ArrowCount < MaxArrowCount;
+                case UpgradeType.PiercingShot:
+                    return PierceCount < MaxPierceCount;
+                case UpgradeType.BouncingShot:
+                    return BounceCount < MaxBounceCount;
+                default:
+                    return true;
+            }
+        }
+
         public void ApplyUpgrade(UpgradeType upgradeType)
         {
             ThrowIfDisposed();
@@ -82,6 +111,16 @@ namespace ArcherLegend.Domain
                     MaxHealth += 25;
                     Heal(35);
                     break;
+                case UpgradeType.SpreadShot:
+                    // 狙った方向を中心に左右対称に広げるので、2 本ずつ増やして本数を奇数に保つ
+                    ArrowCount = Mathf.Min(MaxArrowCount, ArrowCount + 2);
+                    break;
+                case UpgradeType.PiercingShot:
+                    PierceCount = Mathf.Min(MaxPierceCount, PierceCount + 1);
+                    break;
+                case UpgradeType.BouncingShot:
+                    BounceCount = Mathf.Min(MaxBounceCount, BounceCount + 1);
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(upgradeType), upgradeType, null);
             }
@@ -97,6 +136,9 @@ namespace ArcherLegend.Domain
             MoveSpeed = 5.4f;
             FireCooldown = 0.48f;
             ArrowDamage = 28;
+            ArrowCount = 1;
+            PierceCount = 0;
+            BounceCount = 0;
             InvincibleTimeRemaining = 0f;
             HealToFull();
         }
