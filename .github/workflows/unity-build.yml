@@ -1,0 +1,48 @@
+name: Unity build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "client/Assets/**"
+      - "client/Packages/**"
+      - "client/ProjectSettings/**"
+      - ".github/workflows/unity-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      # Library フォルダ（インポート結果）を使い回して、2 回目以降を速くする
+      # テスト用とはキャッシュを分ける（ビルド先のプラットフォームでインポート結果が変わるため）
+      - uses: actions/cache@v6
+        with:
+          path: client/Library
+          key: unity-library-windows-${{ hashFiles('client/Assets/**', 'client/Packages/**', 'client/ProjectSettings/**') }}
+          restore-keys: |
+            unity-library-windows-
+
+      # Windows 版をビルドする（Mono なので Linux のランナーでビルドできる）
+      - uses: game-ci/unity-builder@v6
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: client
+          targetPlatform: StandaloneWindows64
+          buildName: ArcherLegend
+          # バージョンは ProjectSettings の bundleVersion をそのまま使う
+          versioning: None
+
+      # ビルド結果を Actions の実行ページからダウンロードできるようにする
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ArcherLegend-windows
+          path: build/StandaloneWindows64
+          retention-days: 14
