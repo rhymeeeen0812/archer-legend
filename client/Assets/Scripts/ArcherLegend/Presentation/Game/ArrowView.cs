@@ -38,8 +38,9 @@ namespace ArcherLegend.Presentation.Game
     {
         private const float Radius = 0.38f;
 
-        // 貫通した矢が、同じ敵に毎フレーム当たり続けないように覚えておく
-        private readonly HashSet<EnemyView> hitEnemies = new HashSet<EnemyView>();
+        // 貫通した矢が、同じ敵に毎フレーム当たり続けないように覚えておく。
+        // 貫通しない矢は最初の命中で消えるので記録は要らず、発射のたびのメモリ確保を避けるため貫通矢のときだけ作る
+        private HashSet<EnemyView> hitEnemies;
 
         private ArrowShot shot;
         private int remainingPierces;
@@ -56,6 +57,7 @@ namespace ArcherLegend.Presentation.Game
             shot = arrowShot;
             remainingPierces = arrowShot.PierceCount;
             remainingBounces = arrowShot.BounceCount;
+            hitEnemies = arrowShot.PierceCount > 0 ? new HashSet<EnemyView>() : null;
             life = 2.2f;
             enemies = targets;
             onEnemyHit = enemyHit;
@@ -135,7 +137,7 @@ namespace ArcherLegend.Presentation.Game
                 remainingBounces--;
 
                 // 跳ね返ったあとは、一度当たった敵にもまた当たれる
-                hitEnemies.Clear();
+                hitEnemies?.Clear();
             }
 
             transform.position = next;
@@ -144,12 +146,12 @@ namespace ArcherLegend.Presentation.Game
             for (var i = enemies.Count - 1; i >= 0; i--)
             {
                 var enemy = enemies[i];
-                if (enemy == null || hitEnemies.Contains(enemy) || !IsHit(previous, next, enemy.transform.position, Radius))
+                if (enemy == null || (hitEnemies != null && hitEnemies.Contains(enemy)) || !IsHit(previous, next, enemy.transform.position, Radius))
                 {
                     continue;
                 }
 
-                hitEnemies.Add(enemy);
+                hitEnemies?.Add(enemy);
                 if (enemy.ApplyDamage(shot.Damage))
                 {
                     onEnemyHit?.Invoke(enemy);
