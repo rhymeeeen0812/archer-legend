@@ -1,4 +1,6 @@
+using System.Linq;
 using ArcherLegend.Application;
+using ArcherLegend.Domain;
 using NUnit.Framework;
 
 namespace ArcherLegend.Tests
@@ -60,6 +62,38 @@ namespace ArcherLegend.Tests
                 }
 
                 Assert.That(session.CurrentUpgradeOptions, Is.SameAs(shown));
+            }
+        }
+
+        [Test]
+        public void RegisterEnemyDefeated_上限に達した強化は選択肢に出ない()
+        {
+            using (var session = new ArcherGameSession())
+            {
+                for (var i = 0; i < Player.MaxPierceCount; i++)
+                {
+                    session.Player.ApplyUpgrade(UpgradeType.PiercingShot);
+                    session.Player.ApplyUpgrade(UpgradeType.BouncingShot);
+                    session.Player.ApplyUpgrade(UpgradeType.SpreadShot);
+                }
+
+                // 選択肢はランダムなので、何度もレベルを上げて一度も出ないことを確かめる
+                for (var level = 0; level < 10; level++)
+                {
+                    while (!session.IsUpgradePending)
+                    {
+                        session.RegisterEnemyDefeated(session.CreateEnemy());
+                    }
+
+                    var types = session.CurrentUpgradeOptions.Select(option => option.Type).ToArray();
+                    Assert.That(types, Has.Length.EqualTo(3));
+                    Assert.That(types, Is.Unique);
+                    Assert.That(types, Has.None.EqualTo(UpgradeType.PiercingShot));
+                    Assert.That(types, Has.None.EqualTo(UpgradeType.BouncingShot));
+                    Assert.That(types, Has.None.EqualTo(UpgradeType.SpreadShot));
+
+                    session.ApplyUpgrade(types[0]);
+                }
             }
         }
 

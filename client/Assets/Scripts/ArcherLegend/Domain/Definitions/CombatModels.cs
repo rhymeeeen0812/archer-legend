@@ -5,7 +5,10 @@ namespace ArcherLegend.Domain
         RapidShot,
         PowerShot,
         SwiftBoots,
-        Vitality
+        Vitality,
+        SpreadShot,
+        PiercingShot,
+        BouncingShot
     }
 
     public enum ItemType

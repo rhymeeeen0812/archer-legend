@@ -14,6 +14,10 @@ namespace ArcherLegend.Presentation.Game
         private const float ArenaHalfWidth = 9f;
         private const float ArenaHalfDepth = 6f;
         private const float SafeSpawnDistance = 3f;
+        private const float ArrowSpeed = 12f;
+
+        /// <summary>拡散矢で隣り合う矢の間の角度（度）です。</summary>
+        private const float SpreadAngle = 15f;
 
         private readonly List<EnemyView> enemies = new List<EnemyView>();
         private ArcherGameSession session;
@@ -158,9 +162,15 @@ namespace ArcherLegend.Presentation.Game
             }
 
             player.transform.forward = direction.normalized;
-            var arrow = factory.CreateArrow().AddComponent<ArrowView>();
-            arrow.Launch(player.transform.position + Vector3.up * 0.25f + direction.normalized * 0.55f, direction, session.Player.ArrowDamage, 12f, enemies, OnEnemyDefeated);
-            fireTimer = session.Player.FireCooldown;
+            var stats = session.Player;
+            var shot = new ArrowShot(stats.ArrowDamage, ArrowSpeed, stats.PierceCount, stats.BounceCount, ArenaHalfWidth, ArenaHalfDepth);
+            foreach (var arrowDirection in ArrowView.SpreadDirections(direction, stats.ArrowCount, SpreadAngle))
+            {
+                var arrow = factory.CreateArrow().AddComponent<ArrowView>();
+                arrow.Launch(player.transform.position + Vector3.up * 0.25f + arrowDirection * 0.55f, arrowDirection, shot, enemies, OnEnemyDefeated);
+            }
+
+            fireTimer = stats.FireCooldown;
         }
 
         private EnemyView FindNearestEnemy()
