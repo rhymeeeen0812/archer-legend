@@ -11,6 +11,18 @@ namespace ArcherLegend.Domain
         BouncingShot
     }
 
+    public enum EnemyType
+    {
+        /// <summary>まっすぐ近づいて体当たりする</summary>
+        Chaser,
+
+        /// <summary>距離を取って弾を撃つ</summary>
+        Shooter,
+
+        /// <summary>溜めてから一直線に突進する</summary>
+        Charger
+    }
+
     public enum ItemType
     {
         Upgrade,

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using ArcherLegend.Application;
+using ArcherLegend.Domain;
 using ArcherLegend.Infrastructure;
 using ArcherLegend.Presentation.Result;
 using UnityEngine;
@@ -199,10 +200,10 @@ namespace ArcherLegend.Presentation.Game
 
         private void BeginWave()
         {
-            var count = 3 + session.Wave;
-            for (var i = 0; i < count; i++)
+            var types = session.ComposeWave();
+            for (var i = 0; i < types.Length; i++)
             {
-                SpawnEnemy(i, count);
+                SpawnEnemy(types[i], i, types.Length);
             }
         }
 
@@ -216,14 +217,27 @@ namespace ArcherLegend.Presentation.Game
                 : candidate;
         }
 
-        private void SpawnEnemy(int index, int count)
+        private void SpawnEnemy(EnemyType type, int index, int count)
         {
             var angle = index * Mathf.PI * 2f / count;
             var position = new Vector3(Mathf.Cos(angle) * (ArenaHalfWidth - 1.4f), 0.55f, Mathf.Sin(angle) * (ArenaHalfDepth - 1.4f));
-            var enemy = factory.CreateEnemy().AddComponent<EnemyView>();
+            var enemy = factory.CreateEnemy(type).AddComponent<EnemyView>();
             enemy.transform.position = ResolveSpawnPosition(position, player.transform.position);
-            enemy.Construct(session.CreateEnemy(), player.transform);
+            enemy.Construct(session.CreateEnemy(type), player.transform, ArenaHalfWidth, ArenaHalfDepth, OnEnemyShoot);
             enemies.Add(enemy);
+        }
+
+        private void OnEnemyShoot(EnemyView shooter, Vector3 direction)
+        {
+            var bullet = factory.CreateEnemyBullet().AddComponent<EnemyBulletView>();
+            var start = shooter.transform.position + Vector3.up * 0.25f + direction * 0.6f;
+            bullet.Launch(start, direction, shooter.Model.ShotDamage, player.transform, OnPlayerShot, ArenaHalfWidth, ArenaHalfDepth);
+        }
+
+        private void OnPlayerShot(int damage)
+        {
+            // 体当たりと同じく、無敵時間中は当たってもダメージを受けない
+            session.Player.TryTakeHit(damage);
         }
 
         private void OnEnemyDefeated(EnemyView enemy)
@@ -256,6 +270,11 @@ namespace ArcherLegend.Presentation.Game
             foreach (var arrow in FindObjectsByType<ArrowView>(FindObjectsSortMode.None))
             {
                 Destroy(arrow.gameObject);
+            }
+
+            foreach (var bullet in FindObjectsByType<EnemyBulletView>(FindObjectsSortMode.None))
+            {
+                Destroy(bullet.gameObject);
             }
 
             enemies.Clear();

@@ -37,10 +37,17 @@ namespace ArcherLegend.Application
 
         public UpgradeOption[] CurrentUpgradeOptions { get; private set; } = Array.Empty<UpgradeOption>();
 
-        public Enemy CreateEnemy()
+        /// <summary>今のウェーブに出す敵の種類を、出現順に返します。</summary>
+        public EnemyType[] ComposeWave()
         {
             ThrowIfDisposed();
-            var enemy = new Enemy(Wave);
+            return EnemyWave.Compose(Wave);
+        }
+
+        public Enemy CreateEnemy(EnemyType type = EnemyType.Chaser)
+        {
+            ThrowIfDisposed();
+            var enemy = new Enemy(Wave, type);
             activeEnemies.Add(enemy);
             return enemy;
         }

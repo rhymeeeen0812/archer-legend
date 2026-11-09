@@ -66,6 +66,23 @@ namespace ArcherLegend.Tests
         }
 
         [Test]
+        public void ComposeWave_今のウェーブの顔ぶれを返し指定した種類の敵を作る()
+        {
+            using (var session = new ArcherGameSession())
+            {
+                for (var i = 1; i < EnemyWave.FirstChargerWave; i++)
+                {
+                    session.RegisterWaveCleared();
+                }
+
+                Assert.That(session.ComposeWave(), Is.EqualTo(EnemyWave.Compose(EnemyWave.FirstChargerWave)));
+
+                var enemy = session.CreateEnemy(EnemyType.Charger);
+                Assert.That(enemy.Type, Is.EqualTo(EnemyType.Charger));
+            }
+        }
+
+        [Test]
         public void RegisterEnemyDefeated_上限に達した強化は選択肢に出ない()
         {
             using (var session = new ArcherGameSession())
