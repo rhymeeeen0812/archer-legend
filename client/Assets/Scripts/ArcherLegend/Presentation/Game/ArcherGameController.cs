@@ -9,18 +9,27 @@ namespace ArcherLegend.Presentation.Game
 {
     /// <summary>
     /// Unity 側の調整役です。入力・Transform・GameObject を Application 層の呼び出しへ変換します。
+    /// ステージ（部屋）の流れ: ウェーブを順に倒す → 最後のウェーブを倒すと出口が開く → 出口に入ると次の部屋へ移る。
     /// </summary>
     public sealed class ArcherGameController : MonoBehaviour
     {
-        private const float ArenaHalfWidth = 9f;
-        private const float ArenaHalfDepth = 6f;
+        private const float ArenaHalfWidth = StageLayouts.ArenaHalfWidth;
+        private const float ArenaHalfDepth = StageLayouts.ArenaHalfDepth;
         private const float SafeSpawnDistance = 3f;
         private const float ArrowSpeed = 12f;
+
+        // 障害物とぶつかるときのプレイヤーの体の半径
+        private const float PlayerRadius = 0.45f;
 
         /// <summary>拡散矢で隣り合う矢の間の角度（度）です。</summary>
         private const float SpreadAngle = 15f;
 
         private readonly List<EnemyView> enemies = new List<EnemyView>();
+
+        // 今のステージの障害物。敵・矢・弾はこの一覧を参照するので、ステージが変わっても同じインスタンスの中身を入れ替える
+        private readonly List<Rect> obstacles = new List<Rect>();
+        private readonly List<GameObject> obstacleObjects = new List<GameObject>();
+
         private ArcherGameSession session;
         private UnityObjectFactory factory;
         private PlayerProgressService progress;
@@ -31,8 +40,11 @@ namespace ArcherLegend.Presentation.Game
         private BlinkView playerBlink;
         private GameHudPresenter hudPresenter;
         private ResultPresenter resultPresenter;
+        private GameObject exit;
         private float fireTimer;
         private bool isRunFinished;
+
+        private bool IsExitOpen => exit != null;
 
         public void Construct(ArcherGameSession gameSession, UnityObjectFactory objectFactory, PlayerProgressService playerProgress, OnlineSyncService onlineSync, ISceneNavigator sceneNavigator)
         {
@@ -49,7 +61,6 @@ namespace ArcherLegend.Presentation.Game
             input = new PlayerInputReader();
             factory.CreateArena(ArenaHalfWidth, ArenaHalfDepth);
             player = factory.CreatePlayer();
-            player.transform.position = Vector3.up * 0.6f;
             playerBlink = player.AddComponent<BlinkView>();
 
             ArenaCamera.Create(ArenaHalfWidth, ArenaHalfDepth);
@@ -68,7 +79,7 @@ namespace ArcherLegend.Presentation.Game
             resultPresenter = new ResultPresenter(resultView, progress, sync, navigator, Restart);
             PresenterLifetime.Bind(resultView.gameObject, resultPresenter);
 
-            BeginWave();
+            EnterStage();
         }
 
         private void Update()
@@ -88,13 +99,13 @@ namespace ArcherLegend.Presentation.Game
                     _ = resultPresenter.ShowAsync(session.CreateRunResult());
                 }
 
-                hudPresenter.Refresh(enemies.Count);
+                hudPresenter.Refresh(enemies.Count, IsExitOpen);
                 return;
             }
 
             if (session.IsUpgradePending)
             {
-                hudPresenter.Refresh(enemies.Count);
+                hudPresenter.Refresh(enemies.Count, IsExitOpen);
                 return;
             }
 
@@ -103,23 +114,39 @@ namespace ArcherLegend.Presentation.Game
             UpdateCombat(move);
             CullMissingEnemies();
 
-            if (enemies.Count == 0)
+            if (IsExitOpen)
             {
-                session.RegisterWaveCleared();
-                BeginWave();
+                if (StageLayouts.IsInExit(player.transform.position))
+                {
+                    AdvanceStage();
+                }
+            }
+            else if (enemies.Count == 0)
+            {
+                if (session.IsLastWaveOfStage)
+                {
+                    // ステージの最後のウェーブを倒しきったら、すぐ次へは進まず出口を開いて待つ
+                    exit = factory.CreateExit(StageLayouts.ExitZone);
+                }
+                else
+                {
+                    session.RegisterWaveCleared();
+                    BeginWave();
+                }
             }
 
-            hudPresenter.Refresh(enemies.Count);
+            hudPresenter.Refresh(enemies.Count, IsExitOpen);
         }
 
         private void MovePlayer(Vector2 move)
         {
             var direction = new Vector3(move.x, 0f, move.y);
-            player.transform.position += direction * session.Player.MoveSpeed * Time.deltaTime;
-            player.transform.position = new Vector3(
-                Mathf.Clamp(player.transform.position.x, -ArenaHalfWidth + 0.6f, ArenaHalfWidth - 0.6f),
+            var next = player.transform.position + direction * session.Player.MoveSpeed * Time.deltaTime;
+            next = new Vector3(
+                Mathf.Clamp(next.x, -ArenaHalfWidth + 0.6f, ArenaHalfWidth - 0.6f),
                 0.6f,
-                Mathf.Clamp(player.transform.position.z, -ArenaHalfDepth + 0.6f, ArenaHalfDepth - 0.6f));
+                Mathf.Clamp(next.z, -ArenaHalfDepth + 0.6f, ArenaHalfDepth - 0.6f));
+            player.transform.position = ArenaGeometry.PushOut(next, PlayerRadius, obstacles);
 
             if (direction.sqrMagnitude > 0.01f)
             {
@@ -164,7 +191,7 @@ namespace ArcherLegend.Presentation.Game
 
             player.transform.forward = direction.normalized;
             var stats = session.Player;
-            var shot = new ArrowShot(stats.ArrowDamage, ArrowSpeed, stats.PierceCount, stats.BounceCount, ArenaHalfWidth, ArenaHalfDepth);
+            var shot = new ArrowShot(stats.ArrowDamage, ArrowSpeed, stats.PierceCount, stats.BounceCount, ArenaHalfWidth, ArenaHalfDepth, obstacles);
             foreach (var arrowDirection in ArrowView.SpreadDirections(direction, stats.ArrowCount, SpreadAngle))
             {
                 var arrow = factory.CreateArrow().AddComponent<ArrowView>();
@@ -198,6 +225,37 @@ namespace ArcherLegend.Presentation.Game
             return nearest;
         }
 
+        /// <summary>出口に入ったら、通算のウェーブを 1 つ進めて次の部屋へ移ります。</summary>
+        private void AdvanceStage()
+        {
+            session.RegisterWaveCleared();
+            EnterStage();
+        }
+
+        /// <summary>今のステージの部屋を作り直し、プレイヤーを入口に置いて最初のウェーブを始めます。</summary>
+        private void EnterStage()
+        {
+            ClearProjectiles();
+            CloseExit();
+
+            foreach (var obstacleObject in obstacleObjects)
+            {
+                Destroy(obstacleObject);
+            }
+
+            obstacleObjects.Clear();
+            obstacles.Clear();
+            obstacles.AddRange(StageLayouts.For(session.Stage));
+            foreach (var area in obstacles)
+            {
+                obstacleObjects.Add(factory.CreateObstacle(area));
+            }
+
+            player.transform.position = StageLayouts.PlayerStart;
+            player.transform.forward = Vector3.forward;
+            BeginWave();
+        }
+
         private void BeginWave()
         {
             var types = session.ComposeWave();
@@ -221,9 +279,11 @@ namespace ArcherLegend.Presentation.Game
         {
             var angle = index * Mathf.PI * 2f / count;
             var position = new Vector3(Mathf.Cos(angle) * (ArenaHalfWidth - 1.4f), 0.55f, Mathf.Sin(angle) * (ArenaHalfDepth - 1.4f));
+            position = ResolveSpawnPosition(position, player.transform.position);
+
             var enemy = factory.CreateEnemy(type).AddComponent<EnemyView>();
-            enemy.transform.position = ResolveSpawnPosition(position, player.transform.position);
-            enemy.Construct(session.CreateEnemy(type), player.transform, ArenaHalfWidth, ArenaHalfDepth, OnEnemyShoot);
+            enemy.transform.position = ArenaGeometry.PushOut(position, PlayerRadius, obstacles);
+            enemy.Construct(session.CreateEnemy(type), player.transform, ArenaHalfWidth, ArenaHalfDepth, obstacles, OnEnemyShoot);
             enemies.Add(enemy);
         }
 
@@ -231,7 +291,7 @@ namespace ArcherLegend.Presentation.Game
         {
             var bullet = factory.CreateEnemyBullet().AddComponent<EnemyBulletView>();
             var start = shooter.transform.position + Vector3.up * 0.25f + direction * 0.6f;
-            bullet.Launch(start, direction, shooter.Model.ShotDamage, player.transform, OnPlayerShot, ArenaHalfWidth, ArenaHalfDepth);
+            bullet.Launch(start, direction, shooter.Model.ShotDamage, player.transform, OnPlayerShot, ArenaHalfWidth, ArenaHalfDepth, obstacles);
         }
 
         private void OnPlayerShot(int damage)
@@ -257,6 +317,28 @@ namespace ArcherLegend.Presentation.Game
             }
         }
 
+        private void ClearProjectiles()
+        {
+            foreach (var arrow in FindObjectsByType<ArrowView>(FindObjectsSortMode.None))
+            {
+                Destroy(arrow.gameObject);
+            }
+
+            foreach (var bullet in FindObjectsByType<EnemyBulletView>(FindObjectsSortMode.None))
+            {
+                Destroy(bullet.gameObject);
+            }
+        }
+
+        private void CloseExit()
+        {
+            if (exit != null)
+            {
+                Destroy(exit);
+                exit = null;
+            }
+        }
+
         private void Restart()
         {
             foreach (var enemy in enemies)
@@ -267,21 +349,10 @@ namespace ArcherLegend.Presentation.Game
                 }
             }
 
-            foreach (var arrow in FindObjectsByType<ArrowView>(FindObjectsSortMode.None))
-            {
-                Destroy(arrow.gameObject);
-            }
-
-            foreach (var bullet in FindObjectsByType<EnemyBulletView>(FindObjectsSortMode.None))
-            {
-                Destroy(bullet.gameObject);
-            }
-
             enemies.Clear();
             session.Restart();
             isRunFinished = false;
-            player.transform.position = Vector3.up * 0.6f;
-            BeginWave();
+            EnterStage();
         }
 
         private void OnDestroy()

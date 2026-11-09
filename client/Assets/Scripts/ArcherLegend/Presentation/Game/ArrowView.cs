@@ -8,7 +8,7 @@ namespace ArcherLegend.Presentation.Game
     /// </summary>
     public readonly struct ArrowShot
     {
-        public ArrowShot(int damage, float speed, int pierceCount, int bounceCount, float arenaHalfWidth, float arenaHalfDepth)
+        public ArrowShot(int damage, float speed, int pierceCount, int bounceCount, float arenaHalfWidth, float arenaHalfDepth, IReadOnlyList<Rect> obstacles)
         {
             Damage = damage;
             Speed = speed;
@@ -16,6 +16,7 @@ namespace ArcherLegend.Presentation.Game
             BounceCount = bounceCount;
             ArenaHalfWidth = arenaHalfWidth;
             ArenaHalfDepth = arenaHalfDepth;
+            Obstacles = obstacles;
         }
 
         public int Damage { get; }
@@ -29,6 +30,9 @@ namespace ArcherLegend.Presentation.Game
 
         public float ArenaHalfWidth { get; }
         public float ArenaHalfDepth { get; }
+
+        /// <summary>ステージの障害物です。矢は障害物に当たると消えます（跳弾が残っていれば跳ね返ります）。</summary>
+        public IReadOnlyList<Rect> Obstacles { get; }
     }
 
     /// <summary>
@@ -37,6 +41,9 @@ namespace ArcherLegend.Presentation.Game
     public sealed class ArrowView : MonoBehaviour
     {
         private const float Radius = 0.38f;
+
+        // 矢の太さの分だけ障害物を広げて判定する
+        private const float ObstaclePadding = 0.05f;
 
         // 貫通した矢が、同じ敵に毎フレーム当たり続けないように覚えておく。
         // 貫通しない矢は最初の命中で消えるので記録は要らず、発射のたびのメモリ確保を避けるため貫通矢のときだけ作る
@@ -138,6 +145,22 @@ namespace ArcherLegend.Presentation.Game
 
                 // 跳ね返ったあとは、一度当たった敵にもまた当たれる
                 hitEnemies?.Clear();
+            }
+
+            var obstacleIndex = shot.Obstacles == null ? -1 : ArenaGeometry.FindHit(previous, next, shot.Obstacles, ObstaclePadding);
+            if (obstacleIndex >= 0)
+            {
+                if (remainingBounces <= 0)
+                {
+                    Destroy(gameObject);
+                    return;
+                }
+
+                // 障害物の手前に留まって向きだけ変え、次のフレームから跳ね返った向きへ進む
+                SetDirection(ArenaGeometry.ReflectOff(shot.Obstacles[obstacleIndex], previous, direction));
+                remainingBounces--;
+                hitEnemies?.Clear();
+                next = previous;
             }
 
             transform.position = next;

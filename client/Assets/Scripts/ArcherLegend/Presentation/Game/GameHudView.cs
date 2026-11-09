@@ -12,7 +12,8 @@ namespace ArcherLegend.Presentation.Game
         /// <summary>選ばれた強化の選択肢の番号（0 始まり）を通知します。</summary>
         event Action<int> UpgradeSelected;
 
-        void SetStatus(int health, int maxHealth, int level, int experience, int experienceToNext, int wave, int score, int aliveEnemies);
+        /// <param name="isExitOpen">ステージの敵を倒しきり、出口が開いているか。開いている間は残りの敵の代わりに案内を出します。</param>
+        void SetStatus(int health, int maxHealth, int level, int experience, int experienceToNext, int stage, int waveInStage, int score, int aliveEnemies, bool isExitOpen);
         void ShowUpgrades(IReadOnlyList<UpgradeOption> options);
         void HideUpgrades();
     }
@@ -34,9 +35,15 @@ namespace ArcherLegend.Presentation.Game
         [SerializeField] private Button[] upgradeButtons;
         [SerializeField] private TextMeshProUGUI[] upgradeLabels;
 
-        public void SetStatus(int health, int maxHealth, int level, int experience, int experienceToNext, int wave, int score, int aliveEnemies)
+        public void SetStatus(int health, int maxHealth, int level, int experience, int experienceToNext, int stage, int waveInStage, int score, int aliveEnemies, bool isExitOpen)
         {
-            statusText.text = $"HP {health}/{maxHealth}\nレベル {level}  経験値 {experience}/{experienceToNext}\nウェーブ {wave}  スコア {score}\n残りの敵 {aliveEnemies}";
+            var lastLine = isExitOpen ? "出口が開いた！ 上の光る床へ進もう" : $"残りの敵 {aliveEnemies}";
+            statusText.text =
+                $"HP {health}/{maxHealth}\n" +
+                $"レベル {level}  経験値 {experience}/{experienceToNext}\n" +
+                $"ステージ {stage}  ウェーブ {waveInStage}/{StageProgress.WavesPerStage}\n" +
+                $"スコア {score}\n" +
+                lastLine;
         }
 
         public void ShowUpgrades(IReadOnlyList<UpgradeOption> options)

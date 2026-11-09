@@ -15,6 +15,7 @@ namespace ArcherLegend.Infrastructure
         private readonly Material shooterMaterial;
         private readonly Material chargerMaterial;
         private readonly Material enemyBulletMaterial;
+        private readonly Material exitMaterial;
         private readonly Material arrowMaterial;
         private readonly Material floorMaterial;
         private readonly Material wallMaterial;
@@ -27,6 +28,7 @@ namespace ArcherLegend.Infrastructure
             shooterMaterial = CreateMaterial("Shooter Violet", new Color(0.58f, 0.36f, 0.86f));
             chargerMaterial = CreateMaterial("Charger Amber", new Color(0.95f, 0.55f, 0.16f));
             enemyBulletMaterial = CreateMaterial("Enemy Bullet Pink", new Color(1.00f, 0.35f, 0.75f));
+            exitMaterial = CreateMaterial("Exit Glow", new Color(0.35f, 0.95f, 0.85f));
             arrowMaterial = CreateMaterial("Arrow Gold", new Color(1.00f, 0.78f, 0.25f));
             floorMaterial = CreateMaterial("Arena Stone", new Color(0.22f, 0.24f, 0.27f));
             wallMaterial = CreateMaterial("Arena Wall", new Color(0.39f, 0.42f, 0.46f));
@@ -86,6 +88,30 @@ namespace ArcherLegend.Infrastructure
             arrow.GetComponent<Renderer>().sharedMaterial = arrowMaterial;
             Object.Destroy(arrow.GetComponent<Collider>());
             return arrow;
+        }
+
+        /// <summary>ステージの障害物を作ります。<paramref name="area"/> は地面上の範囲で、y を Z 座標として扱います。</summary>
+        public GameObject CreateObstacle(Rect area)
+        {
+            var obstacle = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            obstacle.name = "Obstacle";
+            obstacle.transform.position = new Vector3(area.center.x, 0.5f, area.center.y);
+            obstacle.transform.localScale = new Vector3(area.width, 1f, area.height);
+            obstacle.GetComponent<Renderer>().sharedMaterial = wallMaterial;
+            Object.Destroy(obstacle.GetComponent<Collider>());
+            return obstacle;
+        }
+
+        /// <summary>ステージを倒しきったときに、上の壁の真ん中に出す出口です。</summary>
+        public GameObject CreateExit(Rect area)
+        {
+            var exit = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            exit.name = "Stage Exit";
+            exit.transform.position = new Vector3(area.center.x, 0.02f, area.center.y);
+            exit.transform.localScale = new Vector3(area.width, 0.06f, area.height);
+            exit.GetComponent<Renderer>().sharedMaterial = exitMaterial;
+            Object.Destroy(exit.GetComponent<Collider>());
+            return exit;
         }
 
         public void CreateArena(float halfWidth, float halfDepth)

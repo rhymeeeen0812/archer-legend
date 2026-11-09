@@ -1,4 +1,5 @@
 using System;
+using ArcherLegend.Domain;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -36,7 +37,7 @@ namespace ArcherLegend.Presentation.Result
         {
             statsText.text =
                 $"スコア    {score}{(isNewBestScore ? NewRecordLabel : string.Empty)}\n" +
-                $"到達ウェーブ    {wave}{(isNewBestWave ? NewRecordLabel : string.Empty)}\n" +
+                $"到達ウェーブ    {wave}（ステージ {StageProgress.StageOf(wave)}）{(isNewBestWave ? NewRecordLabel : string.Empty)}\n" +
                 $"撃破数    {enemiesDefeated}\n" +
                 $"レベル    {level}";
             saveErrorText.gameObject.SetActive(false);

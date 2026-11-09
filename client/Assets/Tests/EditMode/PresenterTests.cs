@@ -232,6 +232,26 @@ namespace ArcherLegend.Tests
     public class GameHudPresenterTests
     {
         [Test]
+        public void Refresh_ステージとステージ内のウェーブと出口の状態を表示する()
+        {
+            using (var session = new ArcherGameSession())
+            {
+                var view = new FakeGameHudView();
+                var presenter = new GameHudPresenter(view, session);
+                for (var i = 0; i < StageProgress.WavesPerStage + 1; i++)
+                {
+                    session.RegisterWaveCleared();
+                }
+
+                presenter.Refresh(aliveEnemies: 0, isExitOpen: true);
+
+                Assert.That(view.Stage, Is.EqualTo(2));
+                Assert.That(view.WaveInStage, Is.EqualTo(2));
+                Assert.That(view.IsExitOpen, Is.True);
+            }
+        }
+
+        [Test]
         public void Refresh_レベルアップ待ちになったときだけ強化の選択肢を表示する()
         {
             using (var session = new ArcherGameSession())

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ArcherLegend.Presentation.Game
@@ -14,6 +15,7 @@ namespace ArcherLegend.Presentation.Game
         // プレイヤーの太さと弾の大きさを合わせた当たり判定の半径
         private const float HitRadius = 0.5f;
         private const float Lifetime = 4f;
+        private const float ObstaclePadding = 0.12f;
 
         private Vector3 direction;
         private int damage;
@@ -22,9 +24,12 @@ namespace ArcherLegend.Presentation.Game
         private Action<int> onHitTarget;
         private float arenaHalfWidth;
         private float arenaHalfDepth;
+        private IReadOnlyList<Rect> obstacles;
 
-        public void Launch(Vector3 start, Vector3 aimDirection, int shotDamage, Transform player, Action<int> hitPlayer, float halfWidth, float halfDepth)
+        /// <param name="stageObstacles">ステージの障害物です。弾は障害物に当たると消えるので、障害物の陰に隠れれば防げます。</param>
+        public void Launch(Vector3 start, Vector3 aimDirection, int shotDamage, Transform player, Action<int> hitPlayer, float halfWidth, float halfDepth, IReadOnlyList<Rect> stageObstacles)
         {
+            obstacles = stageObstacles;
             transform.position = start;
             direction = aimDirection.normalized;
             damage = shotDamage;
@@ -50,7 +55,8 @@ namespace ArcherLegend.Presentation.Game
                 return;
             }
 
-            if (life <= 0f || Mathf.Abs(next.x) > arenaHalfWidth || Mathf.Abs(next.z) > arenaHalfDepth)
+            var hitsObstacle = obstacles != null && ArenaGeometry.FindHit(previous, next, obstacles, ObstaclePadding) >= 0;
+            if (hitsObstacle || life <= 0f || Mathf.Abs(next.x) > arenaHalfWidth || Mathf.Abs(next.z) > arenaHalfDepth)
             {
                 Destroy(gameObject);
             }

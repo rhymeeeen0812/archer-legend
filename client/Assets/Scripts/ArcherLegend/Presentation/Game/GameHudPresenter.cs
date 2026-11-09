@@ -20,10 +20,10 @@ namespace ArcherLegend.Presentation.Game
         /// <summary>
         /// 毎フレーム呼ばれます。強化の選択肢は抽選し直されたときだけ作り直します。
         /// </summary>
-        public void Refresh(int aliveEnemies)
+        public void Refresh(int aliveEnemies, bool isExitOpen = false)
         {
             var player = session.Player;
-            view.SetStatus(player.Health, player.MaxHealth, player.Level, player.Experience, player.ExperienceToNext, session.Wave, session.Score, aliveEnemies);
+            view.SetStatus(player.Health, player.MaxHealth, player.Level, player.Experience, player.ExperienceToNext, session.Stage, session.WaveInStage, session.Score, aliveEnemies, isExitOpen);
 
             // 抽選のたびに新しい配列になるので、参照の比較で「選択肢が変わったか」を判定できる
             var options = session.IsUpgradePending && !session.IsGameOver ? session.CurrentUpgradeOptions : null;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using ArcherLegend.Domain;
 using UnityEngine;
 
@@ -17,9 +18,13 @@ namespace ArcherLegend.Presentation.Game
         private const float ShootDistanceTolerance = 0.6f;
         private const float ArenaEdgeMargin = 0.6f;
 
+        // 障害物とぶつかるときの体の半径
+        private const float BodyRadius = 0.45f;
+
         private Transform target;
         private float arenaHalfWidth;
         private float arenaHalfDepth;
+        private IReadOnlyList<Rect> obstacles;
         private Action<EnemyView, Vector3> onShoot;
         private float shotTimer;
         private ChargeCycle charge;
@@ -30,9 +35,11 @@ namespace ArcherLegend.Presentation.Game
         public Enemy Model { get; private set; }
 
         /// <param name="shoot">射撃する敵が弾を撃つときに、撃った敵と向きを渡して呼ばれます。弾の生成は呼び出し側が行います。</param>
-        public void Construct(Enemy enemy, Transform player, float halfWidth, float halfDepth, Action<EnemyView, Vector3> shoot)
+        /// <param name="stageObstacles">ステージの障害物です。ステージが変わると中身が入れ替わるので、一覧の参照を持っておきます。</param>
+        public void Construct(Enemy enemy, Transform player, float halfWidth, float halfDepth, IReadOnlyList<Rect> stageObstacles, Action<EnemyView, Vector3> shoot)
         {
             Model = enemy;
+            obstacles = stageObstacles;
             target = player;
             arenaHalfWidth = halfWidth;
             arenaHalfDepth = halfDepth;
@@ -163,10 +170,11 @@ namespace ArcherLegend.Presentation.Game
         private void Move(Vector3 direction, float speed)
         {
             var next = transform.position + direction * speed * Time.deltaTime;
-            transform.position = new Vector3(
+            next = new Vector3(
                 Mathf.Clamp(next.x, -arenaHalfWidth + ArenaEdgeMargin, arenaHalfWidth - ArenaEdgeMargin),
                 next.y,
                 Mathf.Clamp(next.z, -arenaHalfDepth + ArenaEdgeMargin, arenaHalfDepth - ArenaEdgeMargin));
+            transform.position = obstacles == null ? next : ArenaGeometry.PushOut(next, BodyRadius, obstacles);
 
             if (direction.sqrMagnitude > 0.0001f)
             {

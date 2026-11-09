@@ -219,10 +219,16 @@ namespace ArcherLegend.Tests
         public int ShowUpgradesCount { get; private set; }
         public bool IsUpgradesVisible { get; private set; }
         public int Health { get; private set; }
+        public int Stage { get; private set; }
+        public int WaveInStage { get; private set; }
+        public bool IsExitOpen { get; private set; }
 
-        public void SetStatus(int health, int maxHealth, int level, int experience, int experienceToNext, int wave, int score, int aliveEnemies)
+        public void SetStatus(int health, int maxHealth, int level, int experience, int experienceToNext, int stage, int waveInStage, int score, int aliveEnemies, bool isExitOpen)
         {
             Health = health;
+            Stage = stage;
+            WaveInStage = waveInStage;
+            IsExitOpen = isExitOpen;
         }
 
         public void ShowUpgrades(IReadOnlyList<UpgradeOption> options)

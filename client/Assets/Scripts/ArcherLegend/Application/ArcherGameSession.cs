@@ -29,7 +29,17 @@ namespace ArcherLegend.Application
         private bool isDisposed;
 
         public Player Player { get; } = new Player();
+        /// <summary>通算のウェーブ数です。サーバーやセーブデータにはこの値を記録します。</summary>
         public int Wave { get; private set; } = 1;
+
+        /// <summary>今いるステージ（部屋）の番号です。通算のウェーブ数から求めます。</summary>
+        public int Stage => StageProgress.StageOf(Wave);
+
+        /// <summary>今のステージの何番目のウェーブかを返します。</summary>
+        public int WaveInStage => StageProgress.WaveInStage(Wave);
+
+        /// <summary>今のウェーブを倒しきると、ステージの出口が開くかを返します。</summary>
+        public bool IsLastWaveOfStage => StageProgress.IsLastWaveOfStage(Wave);
         public int Score { get; private set; }
         public int EnemiesDefeated { get; private set; }
         public bool IsUpgradePending => pendingUpgrades > 0;
