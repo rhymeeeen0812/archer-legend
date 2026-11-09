@@ -10,6 +10,7 @@ public record PlayerResponse(Guid Id, string Name, PlayerRecordsResponse Records
 
 public record PlayerRecordsResponse(int BestScore, int BestWave, long TotalScore, int TotalEnemiesDefeated, int PlayCount);
 
+// RunId はゲーム側で 1 プレイごとに作る。同じ RunId で再送されても二重に記録しない
 public record SubmitRunRequest(Guid RunId, int Score, int Wave, int EnemiesDefeated, int Level);
 
 public record SubmitRunResponse(PlayerRecordsResponse Records, bool IsNewBestScore, bool IsNewBestWave);
