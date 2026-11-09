@@ -32,8 +32,6 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # API キー（従量課金）を使う場合は上の行を消して、こちらを使う
           # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # エラーの原因を調べるため一時的に全出力をログに出す（原因がわかったら消す）
-          show_full_output: true
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
