@@ -1,0 +1,56 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+    # コードの変更があるときだけレビューする（画像やアセットだけの PR では動かさない）
+    paths:
+      - "server/**/*.cs"
+      - "server/**/*.razor"
+      - "server/**/*.csproj"
+      - "client/Assets/**/*.cs"
+      - ".github/workflows/**"
+
+jobs:
+  review:
+    # ドラフトの PR はレビューしない
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          # API キーを使う場合
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Pro / Max プランを使う場合は上の行を消して、こちらを使う
+          # claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            この PR をレビューしてください。リポジトリの構成:
+            - client/: Unity 6 のゲーム（C#）。ゲームのルールは Domain / Application 層、画面は Presenter と View に分けている
+            - server/: ASP.NET Core (.NET 10) のゲーム用 API と Blazor の運営ツール、PostgreSQL（EF Core、xmin による楽観的同時実行制御）
+
+            観点:
+            - バグや不具合の可能性（null、境界値、非同期処理、同時更新）
+            - セキュリティ（認証・認可の漏れ、入力値の検証、運営ツールが公開されていないか）
+            - 層の分け方が守られているか（Domain に Unity や EF Core の依存が入っていないか など）
+            - テストが足りているか
+            - Unity 特有の問題（Update 内の重い処理や GC アロケーション、シリアライズ参照の漏れ）
+
+            ルール:
+            - 指摘は日本語で書く
+            - 具体的な行への指摘は inline コメントで付ける
+            - 最後に `gh pr comment` で全体のまとめを 1 件だけ投稿する
+            - 問題がなければ、細かい好みの指摘はせずに「問題なし」と簡潔に書く
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
