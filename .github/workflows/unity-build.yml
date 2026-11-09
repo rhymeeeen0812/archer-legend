@@ -3,6 +3,9 @@ name: Unity build
 on:
   push:
     branches: [main]
+    # v0.1.2 のようなタグを push すると、ビルドして Releases に公開する
+    tags: ["v*"]
+    # タグの push では paths は見られない（常に動く）
     paths:
       - "client/Assets/**"
       - "client/Packages/**"
@@ -14,9 +17,24 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # Releases を作るために書き込み権限が要る
+      contents: write
+    env:
+      IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@v5
+
+      # タグ v0.1.2 → バージョン 0.1.2。タグでないときは ProjectSettings の bundleVersion をそのまま使う
+      - name: Decide version
+        id: version
+        run: |
+          if [ "$IS_RELEASE" = "true" ]; then
+            echo "versioning=Custom" >> "$GITHUB_OUTPUT"
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "versioning=None" >> "$GITHUB_OUTPUT"
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
 
       # Library フォルダ（インポート結果）を使い回して、2 回目以降を速くする
       # テスト用とはキャッシュを分ける（ビルド先のプラットフォームでインポート結果が変わるため）
@@ -37,12 +55,32 @@ jobs:
           projectPath: client
           targetPlatform: StandaloneWindows64
           buildName: ArcherLegend
-          # バージョンは ProjectSettings の bundleVersion をそのまま使う
-          versioning: None
+          versioning: ${{ steps.version.outputs.versioning }}
+          version: ${{ steps.version.outputs.version }}
+
+      # 配布用のフォルダを作る（これまでの zip と同じく ArcherLegend/ の下にまとめ、フォントのライセンスを同梱する）
+      - name: Package
+        run: |
+          mkdir -p dist/ArcherLegend
+          cp -r build/StandaloneWindows64/. dist/ArcherLegend/
+          rm -rf dist/ArcherLegend/*_DoNotShip
+          cp licenses/MPLUS1p-OFL.txt dist/ArcherLegend/
 
       # ビルド結果を Actions の実行ページからダウンロードできるようにする
       - uses: actions/upload-artifact@v7
         with:
           name: ArcherLegend-windows
-          path: build/StandaloneWindows64
+          path: dist
           retention-days: 14
+
+      # タグのときだけ zip を作って Releases に公開する
+      - name: Publish release
+        if: env.IS_RELEASE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ZIP="ArcherLegend-${GITHUB_REF_NAME}-windows.zip"
+          (cd dist && zip -qr "../$ZIP" ArcherLegend)
+          gh release create "$GITHUB_REF_NAME" "$ZIP" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes
